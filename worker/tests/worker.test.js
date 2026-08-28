@@ -39,3 +39,14 @@ test("충족 요건과 불필요한 우선순위를 차단한다", () => {
   const output = { summary:"행정요건을 확인해야 합니다.", riskLevel:"낮음", riskReason:"미완료 행정요건", priorities:[{ rank:1, title:"총 졸업학점", reason:"확인", action:"추가 이수 불필요", basis:"학점 규칙" }], warnings:[], confidenceNote:"공식 확인 필요" };
   assert.equal(validateModelOutput(output, context), false);
 });
+
+test("미완료 요건이 있는데 모든 요건을 충족했다는 모순을 차단한다", () => {
+  const output = { summary:"현재 모든 졸업요건을 충족했지만 신고는 미완료입니다.", riskLevel:"낮음", riskReason:"미완료 행정요건", priorities:[{ rank:1, title:"졸업확정신고", reason:"필요", action:"u-SAINT에서 신고", basis:"졸업확정신고 규칙" }], warnings:[], confidenceNote:"u-SAINT와 소속 학과의 공식 확인이 필요합니다." };
+  assert.equal(validateModelOutput(output, validInput), false);
+});
+
+test("중복 경고와 중복 우선순위를 차단한다", () => {
+  const priority = { rank:1, title:"졸업확정신고", reason:"필요", action:"u-SAINT에서 신고", basis:"졸업확정신고 규칙" };
+  const output = { summary:"신고가 미완료입니다.", riskLevel:"낮음", riskReason:"미완료 행정요건", priorities:[priority], warnings:["확인 필요", "확인 필요"], confidenceNote:"u-SAINT와 소속 학과의 공식 확인이 필요합니다." };
+  assert.equal(validateModelOutput(output, validInput), false);
+});
