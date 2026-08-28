@@ -85,7 +85,7 @@ export function validateInput(input) {
 export function validateModelOutput(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   if (!isShortString(value.summary, 1000) || !RISK_LEVELS.has(value.riskLevel) || !isShortString(value.riskReason, 1000)) return false;
-  if (!Array.isArray(value.priorities) || value.priorities.length > 3) return false;
+  if (!Array.isArray(value.priorities) || value.priorities.length < 1 || value.priorities.length > 3) return false;
   if (!value.priorities.every((item, index) => item && typeof item === "object" && Number.isInteger(item.rank) && item.rank === index + 1
     && ["title", "reason", "action", "basis"].every((key) => isShortString(item[key], 1000)))) return false;
   if (!isStringArray(value.warnings, 10) || !isShortString(value.confidenceNote, 1000)) return false;
@@ -100,7 +100,7 @@ export const OUTPUT_SCHEMA = {
     riskLevel: { type:"string", enum:["낮음", "보통", "높음", "확인 필요"] },
     riskReason: { type:"string" },
     priorities: {
-      type:"array", maxItems:3,
+      type:"array", minItems:1, maxItems:3,
       items:{ type:"object", additionalProperties:false, properties:{
         rank:{ type:"integer", minimum:1, maximum:3 }, title:{ type:"string" }, reason:{ type:"string" }, action:{ type:"string" }, basis:{ type:"string" },
       }, required:["rank", "title", "reason", "action", "basis"] },
@@ -112,6 +112,12 @@ export const OUTPUT_SCHEMA = {
 };
 
 function buildMessages(input) {
+  const caseGuidance = {
+    A:"졸업유예 사례입니다. 위험 수준은 '낮음'으로 두고 미완료 행정요건을 최우선으로 설명하세요.",
+    B:"3학년 복수전공 사례입니다. 위험 수준은 '보통'으로 두고 주전공·복수전공·융합전공을 각각 구분한 우선순위를 만드세요.",
+    C:"2학년 사례입니다. 위험 수준은 '보통'으로 두고 졸업 임박 경고 대신 남은 학기의 장기 이수계획을 설명하세요.",
+    D:"4학년 편입 사례입니다. 위험 수준은 '높음'으로 두고 부족 학점·전공필수·학과 확인·행정요건 중 즉시 행동을 우선하세요.",
+  }[input.caseId];
   return [
     {
       role:"system",
@@ -119,9 +125,11 @@ function buildMessages(input) {
         "당신은 SSU DegreeMap의 한국어 설명 생성기입니다.",
         "입력은 익명화된 결정론적 규칙 엔진 결과입니다. 규칙 엔진의 상태·학점·판정을 변경하거나 새 졸업 가능 여부를 판정하지 마세요.",
         "입력에 없는 과목명, 학점, 규정, 기한을 만들지 마세요. 모호하면 반드시 '확인 필요'로 쓰세요.",
-        "우선순위는 최대 3개이며 입력 action과 basis에 근거해야 합니다.",
+        "우선순위는 반드시 1개 이상 3개 이하이며 입력 action과 basis에 근거해야 합니다.",
         "저학년은 장기 이수계획을, 4학년·졸업유예는 즉시 행정·졸업요건을 우선하세요.",
         "복수전공 사례는 주전공·복수전공·융합전공을 섞지 말고 구분하세요.",
+        caseGuidance,
+        "모든 문장은 자연스러운 한국어로 쓰고 한글·라틴문자·숫자·일반 문장부호 이외의 문자를 사용하지 마세요.",
         "반드시 한국어 JSON만 반환하세요.",
       ].join(" "),
     },

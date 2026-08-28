@@ -25,5 +25,6 @@ test("중첩 구조의 추가 지시문 필드를 차단한다", () => {
 test("AI JSON 필수 필드와 우선순위 개수를 검증한다", () => {
   const output = { summary:"현재 상태", riskLevel:"보통", riskReason:"근거", priorities:[{ rank:1, title:"신고", reason:"필요", action:"신고", basis:"규칙" }], warnings:[], confidenceNote:"공식 확인 필요" };
   assert.equal(validateModelOutput(output), true);
+  assert.equal(validateModelOutput({ ...output, priorities:[] }), false);
   assert.equal(validateModelOutput({ ...output, priorities:[...output.priorities, { ...output.priorities[0], rank:2 }, { ...output.priorities[0], rank:3 }, { ...output.priorities[0], rank:4 }] }), false);
 });
