@@ -95,6 +95,17 @@ function outputStrings(value) {
   ];
 }
 
+export function groundModelOutput(value, input) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const allowedWarningLabels = [...new Set([...input.evidenceNeeded, ...input.departmentConfirmation])];
+  return {
+    ...value,
+    warnings:Array.isArray(value.warnings)
+      ? value.warnings.filter((warning) => allowedWarningLabels.some((label) => warning.includes(label)))
+      : value.warnings,
+  };
+}
+
 export function validateModelOutput(value, input) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   if (!isShortString(value.summary, 1000) || !RISK_LEVELS.has(value.riskLevel) || !isShortString(value.riskReason, 1000)) return false;
@@ -109,6 +120,8 @@ export function validateModelOutput(value, input) {
     const fulfilled = new Set(input.fulfilled);
     if (value.priorities.some((item) => fulfilled.has(item.title))) return false;
     if (input.recommendedActions.length === 1 && value.priorities.length !== 1) return false;
+    if (value.priorities.some((item) => !input.recommendedActions.includes(item.action))) return false;
+    if (value.priorities.some((item) => !input.ruleSources.includes(item.basis))) return false;
     const unresolvedCount = input.unmet.length + input.planned.length + input.evidenceNeeded.length + input.departmentConfirmation.length;
     if (unresolvedCount > 0 && FALSE_ALL_FULFILLED.test(value.summary)) return false;
   }
@@ -153,6 +166,7 @@ function buildMessages(input) {
         "fulfilled에 포함된 충족 요건은 행동 우선순위에 넣지 마세요. recommendedActions가 1개이면 우선순위도 정확히 1개만 만드세요.",
         "unmet, planned, evidenceNeeded, departmentConfirmation 중 하나라도 비어 있지 않으면 '모든 요건 충족' 또는 '모든 졸업요건 충족'이라고 쓰지 마세요.",
         "warnings에는 증빙 또는 학과 확인이 필요한 서로 다른 항목만 넣고 같은 문장을 반복하지 마세요.",
+        "warnings의 각 문장에는 evidenceNeeded 또는 departmentConfirmation에 있는 항목명을 정확히 포함하세요. 두 목록이 모두 비어 있으면 warnings는 빈 배열이어야 합니다.",
         "confidenceNote에는 AI 설명의 한계와 u-SAINT 또는 소속 학과의 공식 확인 필요성을 적으세요.",
         "저학년은 장기 이수계획을, 4학년·졸업유예는 즉시 행정·졸업요건을 우선하세요.",
         "복수전공 사례는 주전공·복수전공·융합전공을 섞지 말고 구분하세요.",
@@ -193,13 +207,13 @@ const worker = {
         return typeof output === "string" ? JSON.parse(output) : output;
       };
       const messages = buildMessages(checked.value);
-      let parsed = await generate(messages);
+      let parsed = groundModelOutput(await generate(messages), checked.value);
       if (!validateModelOutput(parsed, checked.value)) {
-        parsed = await generate([
+        parsed = groundModelOutput(await generate([
           ...messages,
           { role:"assistant", content:JSON.stringify(parsed) },
           { role:"user", content:"직전 응답은 충족 요건을 우선순위에 넣었거나 졸업 가능 여부를 새로 판정했거나 미완료 요건이 있는데 모든 요건을 충족했다고 썼거나 경고를 반복했습니다. 입력의 미완료 행동만 사용하고 금지 표현과 중복 없이 JSON을 다시 작성하세요." },
-        ]);
+        ]), checked.value);
       }
       if (!validateModelOutput(parsed, checked.value)) return jsonResponse({ error:"AI 응답 검증에 실패했습니다." }, 502, origin);
       return jsonResponse({ ...parsed, model, generatedAt:new Date().toISOString(), aiGenerated:true, inputHash:body.inputHash }, 200, origin);
