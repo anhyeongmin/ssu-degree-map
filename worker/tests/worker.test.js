@@ -28,3 +28,14 @@ test("AI JSON 필수 필드와 우선순위 개수를 검증한다", () => {
   assert.equal(validateModelOutput({ ...output, priorities:[] }), false);
   assert.equal(validateModelOutput({ ...output, priorities:[...output.priorities, { ...output.priorities[0], rank:2 }, { ...output.priorities[0], rank:3 }, { ...output.priorities[0], rank:4 }] }), false);
 });
+
+test("AI가 졸업 가능 여부를 새로 판정한 응답을 차단한다", () => {
+  const output = { summary:"현재 졸업 가능성은 보통입니다.", riskLevel:"보통", riskReason:"근거", priorities:[{ rank:1, title:"졸업확정신고", reason:"필요", action:"u-SAINT에서 신고", basis:"졸업확정신고 규칙" }], warnings:[], confidenceNote:"공식 확인 필요" };
+  assert.equal(validateModelOutput(output, validInput), false);
+});
+
+test("충족 요건과 불필요한 우선순위를 차단한다", () => {
+  const context = { ...validInput, fulfilled:["총 졸업학점"] };
+  const output = { summary:"행정요건을 확인해야 합니다.", riskLevel:"낮음", riskReason:"미완료 행정요건", priorities:[{ rank:1, title:"총 졸업학점", reason:"확인", action:"추가 이수 불필요", basis:"학점 규칙" }], warnings:[], confidenceNote:"공식 확인 필요" };
+  assert.equal(validateModelOutput(output, context), false);
+});
