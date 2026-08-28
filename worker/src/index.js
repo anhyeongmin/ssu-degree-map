@@ -98,8 +98,18 @@ function outputStrings(value) {
 export function groundModelOutput(value, input) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
   const allowedWarningLabels = [...new Set([...input.evidenceNeeded, ...input.departmentConfirmation])];
+  const actionableRequirements = input.requirements.filter((item) => !["충족", "비적용"].includes(item.status));
+  const priorities = Array.isArray(value.priorities)
+    ? value.priorities.map((priority, index) => {
+      const matched = actionableRequirements.find((item) => priority?.title?.includes(item.label) || item.label.includes(priority?.title || ""))
+        || actionableRequirements.find((item) => item.action === priority?.action)
+        || actionableRequirements[index];
+      return matched ? { ...priority, action:matched.action, basis:matched.basis } : priority;
+    })
+    : value.priorities;
   return {
     ...value,
+    priorities,
     warnings:Array.isArray(value.warnings)
       ? value.warnings.filter((warning) => allowedWarningLabels.some((label) => warning.includes(label)))
       : value.warnings,
