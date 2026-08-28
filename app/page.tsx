@@ -6,6 +6,7 @@ import {
   FileCheck2, GraduationCap, Info, School, ShieldCheck, Sparkles,
 } from "lucide-react";
 import { AiAnalysisPanel } from "@/components/ai-analysis-panel";
+import { CourseRecommendationPlanner } from "@/components/course-recommendation-planner";
 import { CurriculumExplorer } from "@/components/curriculum-explorer";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
@@ -82,6 +83,7 @@ export default function Home() {
         <Tabs defaultValue="audit" className="degree-tabs">
           <TabsList variant="line" className="main-tabs">
             <TabsTrigger value="audit">졸업사정 결과</TabsTrigger>
+            <TabsTrigger value="recommend">과목 추천·What-if</TabsTrigger>
             <TabsTrigger value="curriculum">교과목·변경 이력</TabsTrigger>
             <TabsTrigger value="progress">진행률 산식</TabsTrigger>
             <TabsTrigger value="rules">적용 규칙·근거</TabsTrigger>
@@ -127,6 +129,10 @@ export default function Home() {
             </div>
 
         <AiAnalysisPanel key={studentCase.id} studentCase={studentCase} />
+          </TabsContent>
+
+          <TabsContent value="recommend" className="tab-panel">
+            <CourseRecommendationPlanner key={studentCase.id} studentCase={studentCase} />
           </TabsContent>
 
           <TabsContent value="curriculum" className="tab-panel">

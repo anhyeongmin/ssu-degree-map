@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { buildAiPayload, calculateProgress, studentCases } from "../lib/degree-map.ts";
 import { catalogCourses, courseHistories, graduationRules, officialSources } from "../lib/curriculum-data.ts";
+import { calculateWhatIf, getCourseRecommendationPlan } from "../lib/course-recommendation.ts";
 
 test("네 사례의 학점 진행률은 실제 인정학점에 따라 다르다", () => {
   const values = studentCases.map((item) => calculateProgress(item).creditPercent);
@@ -81,4 +82,41 @@ test("동일 코드가 충돌하는 AI 과목은 확인 필요 상태로 보존�
   const duplicated = catalogCourses.filter((course) => course.department === "ai" && course.code === "21500762");
   assert.deepEqual(duplicated.map((course) => course.name).sort(), ["멀티모달딥러닝", "클라우드컴퓨팅"].sort());
   assert.ok(duplicated.some((course) => course.verification === "공식 자료 충돌"));
+});
+
+test("졸업유예 사례에는 불필요한 과목을 추천하지 않는다", () => {
+  const item = studentCases.find((student) => student.id === "A")!;
+  const plan = getCourseRecommendationPlan(item);
+  assert.equal(plan.candidates.length, 0);
+  assert.equal(plan.minimalPath.length, 0);
+  assert.match(plan.notice, /추가 과목을 추천하지 않습니다/);
+});
+
+test("복수전공 추천은 확인된 이수과목을 후보에서 제외한다", () => {
+  const item = studentCases.find((student) => student.id === "B")!;
+  const plan = getCourseRecommendationPlan(item);
+  for (const completed of ["고체역학실험", "기계공작실습", "열공학실험", "전산기계제도"]) {
+    assert.equal(plan.candidates.some((candidate) => candidate.course.name === completed), false);
+  }
+  assert.ok(plan.unresolved.some((requirement) => requirement.name === "AI모빌리티 전공필수"));
+});
+
+test("2학년 추천은 전필 부족과 장기 전공학점을 함께 계산한다", () => {
+  const item = studentCases.find((student) => student.id === "C")!;
+  const plan = getCourseRecommendationPlan(item);
+  assert.ok(plan.candidates.some((candidate) => candidate.course.classification === "전필"
+    && candidate.impacts.some((impact) => impact.requirementId === "c-major-required")));
+  assert.ok(plan.minimalPath.length > 0);
+  const result = calculateWhatIf(item, plan.minimalPath);
+  assert.equal(result.rows.find((row) => row.requirementId === "c-major-required")?.remaining, 0);
+});
+
+test("What-if는 과목 학점을 한 번만 총학점에 더하고 영역별 효과를 분리한다", () => {
+  const item = studentCases.find((student) => student.id === "D")!;
+  const plan = getCourseRecommendationPlan(item);
+  const choice = plan.candidates.find((candidate) => candidate.course.classification === "전필")!;
+  const result = calculateWhatIf(item, [choice]);
+  assert.equal(result.projectedTotal, item.totalEarned + choice.course.credits);
+  assert.ok(result.rows.find((row) => row.requirementId === "d-me-required")!.added > 0);
+  assert.ok(result.rows.find((row) => row.requirementId === "d-major-total")!.added > 0);
 });
