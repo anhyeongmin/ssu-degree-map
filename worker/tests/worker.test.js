@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { validateInput, validateModelOutput } from "../src/index.js";
+import { groundModelOutput, validateInput, validateModelOutput } from "../src/index.js";
 
 const validInput = {
   caseId:"A", department:"AI소프트웨어학부", admissionYear:2020, yearLabel:"졸업유예", majorType:"주전공",
@@ -48,5 +48,15 @@ test("미완료 요건이 있는데 모든 요건을 충족했다는 모순을 �
 test("중복 경고와 중복 우선순위를 차단한다", () => {
   const priority = { rank:1, title:"졸업확정신고", reason:"필요", action:"u-SAINT에서 신고", basis:"졸업확정신고 규칙" };
   const output = { summary:"신고가 미완료입니다.", riskLevel:"낮음", riskReason:"미완료 행정요건", priorities:[priority], warnings:["확인 필요", "확인 필요"], confidenceNote:"u-SAINT와 소속 학과의 공식 확인이 필요합니다." };
+  assert.equal(validateModelOutput(output, validInput), false);
+});
+
+test("입력에 없는 증빙·학과 확인 경고를 제거한다", () => {
+  const output = { summary:"신고가 미완료입니다.", riskLevel:"낮음", riskReason:"미완료 행정요건", priorities:[{ rank:1, title:"졸업확정신고", reason:"필요", action:"u-SAINT에서 신고", basis:"졸업확정신고 규칙" }], warnings:["졸업확정신고 증빙이 필요합니다."], confidenceNote:"u-SAINT와 소속 학과의 공식 확인이 필요합니다." };
+  assert.deepEqual(groundModelOutput(output, validInput).warnings, []);
+});
+
+test("우선순위의 행동과 근거가 입력값과 다르면 차단한다", () => {
+  const output = { summary:"신고가 미완료입니다.", riskLevel:"낮음", riskReason:"미완료 행정요건", priorities:[{ rank:1, title:"졸업확정신고", reason:"필요", action:"임의의 새 행동", basis:"임의의 규정" }], warnings:[], confidenceNote:"u-SAINT와 소속 학과의 공식 확인이 필요합니다." };
   assert.equal(validateModelOutput(output, validInput), false);
 });
