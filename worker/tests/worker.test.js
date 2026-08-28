@@ -60,3 +60,11 @@ test("우선순위의 행동과 근거가 입력값과 다르면 차단한다", 
   const output = { summary:"신고가 미완료입니다.", riskLevel:"낮음", riskReason:"미완료 행정요건", priorities:[{ rank:1, title:"졸업확정신고", reason:"필요", action:"임의의 새 행동", basis:"임의의 규정" }], warnings:[], confidenceNote:"u-SAINT와 소속 학과의 공식 확인이 필요합니다." };
   assert.equal(validateModelOutput(output, validInput), false);
 });
+
+test("AI가 바꿔 쓴 행동과 근거를 규칙 엔진 원문으로 고정한다", () => {
+  const output = { summary:"신고가 미완료입니다.", riskLevel:"낮음", riskReason:"미완료 행정요건", priorities:[{ rank:1, title:"졸업확정신고", reason:"필요", action:"신고를 진행하세요", basis:"임의 근거" }], warnings:[], confidenceNote:"u-SAINT와 소속 학과의 공식 확인이 필요합니다." };
+  const grounded = groundModelOutput(output, validInput);
+  assert.equal(grounded.priorities[0].action, "u-SAINT에서 신고");
+  assert.equal(grounded.priorities[0].basis, "졸업확정신고 규칙");
+  assert.equal(validateModelOutput(grounded, validInput), true);
+});
