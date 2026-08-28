@@ -82,13 +82,31 @@ export function validateInput(input) {
   return { ok:true, value:input };
 }
 
-export function validateModelOutput(value) {
+const PROHIBITED_JUDGMENT = /졸업\s*(?:가능성|가능|불가능)/;
+
+function outputStrings(value) {
+  return [
+    value.summary,
+    value.riskReason,
+    value.confidenceNote,
+    ...(value.warnings || []),
+    ...(value.priorities || []).flatMap((item) => [item.title, item.reason, item.action, item.basis]),
+  ];
+}
+
+export function validateModelOutput(value, input) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   if (!isShortString(value.summary, 1000) || !RISK_LEVELS.has(value.riskLevel) || !isShortString(value.riskReason, 1000)) return false;
   if (!Array.isArray(value.priorities) || value.priorities.length < 1 || value.priorities.length > 3) return false;
   if (!value.priorities.every((item, index) => item && typeof item === "object" && Number.isInteger(item.rank) && item.rank === index + 1
     && ["title", "reason", "action", "basis"].every((key) => isShortString(item[key], 1000)))) return false;
   if (!isStringArray(value.warnings, 10) || !isShortString(value.confidenceNote, 1000)) return false;
+  if (outputStrings(value).some((text) => PROHIBITED_JUDGMENT.test(text))) return false;
+  if (input) {
+    const fulfilled = new Set(input.fulfilled);
+    if (value.priorities.some((item) => fulfilled.has(item.title))) return false;
+    if (input.recommendedActions.length === 1 && value.priorities.length !== 1) return false;
+  }
   return true;
 }
 
@@ -124,8 +142,10 @@ function buildMessages(input) {
       content:[
         "당신은 SSU DegreeMap의 한국어 설명 생성기입니다.",
         "입력은 익명화된 결정론적 규칙 엔진 결과입니다. 규칙 엔진의 상태·학점·판정을 변경하거나 새 졸업 가능 여부를 판정하지 마세요.",
+        "'졸업 가능', '졸업 불가능', '졸업 가능성'이라는 표현을 절대 사용하지 마세요. riskLevel은 졸업 판정이 아니라 입력된 남은 행동의 시급성입니다.",
         "입력에 없는 과목명, 학점, 규정, 기한을 만들지 마세요. 모호하면 반드시 '확인 필요'로 쓰세요.",
-        "우선순위는 반드시 1개 이상 3개 이하이며 입력 action과 basis에 근거해야 합니다.",
+        "우선순위는 반드시 1개 이상 3개 이하이며 입력 recommendedActions와 미충족·충족예정·증빙 필요·학과 확인 필요 요건의 action과 basis에만 근거해야 합니다.",
+        "fulfilled에 포함된 충족 요건은 행동 우선순위에 넣지 마세요. recommendedActions가 1개이면 우선순위도 정확히 1개만 만드세요.",
         "저학년은 장기 이수계획을, 4학년·졸업유예는 즉시 행정·졸업요건을 우선하세요.",
         "복수전공 사례는 주전공·복수전공·융합전공을 섞지 말고 구분하세요.",
         caseGuidance,
@@ -154,15 +174,26 @@ const worker = {
 
     const model = env.AI_MODEL || DEFAULT_MODEL;
     try {
-      const result = await env.AI.run(model, {
-        messages:buildMessages(checked.value),
-        response_format:{ type:"json_schema", json_schema:OUTPUT_SCHEMA },
-        max_tokens:900,
-        temperature:0.2,
-      });
-      const output = result?.response ?? result;
-      const parsed = typeof output === "string" ? JSON.parse(output) : output;
-      if (!validateModelOutput(parsed)) return jsonResponse({ error:"AI 응답 검증에 실패했습니다." }, 502, origin);
+      const generate = async (messages) => {
+        const result = await env.AI.run(model, {
+          messages,
+          response_format:{ type:"json_schema", json_schema:OUTPUT_SCHEMA },
+          max_tokens:900,
+          temperature:0.2,
+        });
+        const output = result?.response ?? result;
+        return typeof output === "string" ? JSON.parse(output) : output;
+      };
+      const messages = buildMessages(checked.value);
+      let parsed = await generate(messages);
+      if (!validateModelOutput(parsed, checked.value)) {
+        parsed = await generate([
+          ...messages,
+          { role:"assistant", content:JSON.stringify(parsed) },
+          { role:"user", content:"직전 응답은 충족 요건을 우선순위에 넣었거나 졸업 가능 여부를 새로 판정했습니다. 입력의 미완료 행동만 사용하고 금지 표현 없이 JSON을 다시 작성하세요." },
+        ]);
+      }
+      if (!validateModelOutput(parsed, checked.value)) return jsonResponse({ error:"AI 응답 검증에 실패했습니다." }, 502, origin);
       return jsonResponse({ ...parsed, model, generatedAt:new Date().toISOString(), aiGenerated:true, inputHash:body.inputHash }, 200, origin);
     } catch (error) {
       console.error("workers-ai-request-failed", { caseId:body.caseId, inputHash:body.inputHash, message:error instanceof Error ? error.message : "unknown" });
