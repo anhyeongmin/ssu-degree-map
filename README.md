@@ -2,6 +2,9 @@
 
 숭실대학교 u-SAINT 졸업사정표의 익숙한 표 구조를 유지하면서, 네 개의 익명 사례에 대해 부족 원인·다음 행동·판정 근거를 설명하는 정적 웹 MVP입니다. 졸업요건과 진행률은 결정론적 규칙 엔진이 계산하며, Cloudflare Workers AI는 그 결과를 한국어로 설명하고 행동 우선순위를 정하는 데만 사용합니다.
 
+- GitHub Pages: https://anhyeongmin.github.io/ssu-degree-map/
+- Cloudflare Worker: https://ssu-degree-map-ai.degreepath.workers.dev
+
 ## 구현 범위
 
 - `사례 A · 졸업유예`, `사례 B · 복수전공`, `사례 C · AI소프트웨어학부 2학년`, `사례 D · 기계공학부 4학년` 전환
