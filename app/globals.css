@@ -122,3 +122,74 @@
   .curriculum-hero{align-items:flex-start;flex-direction:column}.department-toggle{width:100%}.department-toggle button{min-width:0;flex:1}.catalog-stats{grid-template-columns:1fr 1fr}.catalog-stats>div:nth-child(3){border-left:0;border-top:1px solid #e0e6ec}.catalog-stats>div:nth-child(4){border-top:1px solid #e0e6ec}.catalog-tools{align-items:stretch;flex-direction:column}.catalog-tools label{min-width:0}.catalog-tools select{height:34px}.graduation-rule-grid{grid-template-columns:1fr}.history-title small{width:100%;margin-left:0}.history-change{grid-template-columns:1fr}.history-change strong{transform:rotate(90deg)}
   .recommendation-hero{align-items:flex-start;flex-direction:column}.path-summary{width:100%;min-width:0}.recommendation-targets{grid-template-columns:1fr 1fr}.recommendation-targets article:nth-child(odd){border-left:0}.recommendation-targets article:nth-child(n+3){border-top:1px solid #e0e6ec}.what-if-heading{align-items:stretch;flex-direction:column}.planner-buttons button{flex:1}.candidate-priority{margin-left:0}
 }
+
+/* Readability pass: keep the existing u-SAINT-style layout while making every
+   primary label and supporting explanation legible without browser zoom. */
+body{font-size:16px;line-height:1.5}
+.brand strong{font-size:20px}.brand span,.top-meta,.breadcrumb{font-size:14px}
+.eyebrow{font-size:13px}.page-heading h1{font-size:32px}.page-heading>div>p:last-child{font-size:16px;line-height:1.65}
+.profile-chip span{font-size:12px}.profile-chip strong{font-size:14px}
+.main-tabs button{font-size:15px!important}
+
+.decision-label{font-size:13px}.decision-title-row h2{font-size:28px}.decision-title-row span{font-size:12px}
+.decision-copy p{font-size:15px;line-height:1.6}.decision-score strong{font-size:26px}.decision-score span{font-size:12px}
+.panel-heading h2{font-size:18px}.panel-heading p{font-size:13px;line-height:1.55}
+.credit-summary span{font-size:12px}.credit-summary strong{font-size:16px}
+.audit-table{min-width:1120px}
+.audit-table [data-slot="table-head"]{height:44px;font-size:12px}
+.audit-table [data-slot="table-cell"]{height:56px;font-size:14px;line-height:1.45}
+.group-cell{font-size:12px!important}.status{min-width:56px;font-size:12px}.status-check{min-width:92px}
+
+.case-switcher>button{min-height:118px}.case-switcher strong{font-size:15px}.case-switcher p{font-size:13px}.case-switcher small{font-size:12px;line-height:1.45}
+.case-context span{font-size:12px}.case-context strong{font-size:14px}.case-context small{font-size:12px}
+.progress-strip span{font-size:12px}.progress-strip strong{font-size:22px}.progress-strip p{font-size:12px}
+.panel-kicker{font-size:12px}.action-panel h2{font-size:21px}.action-item>span{font-size:12px}.action-item strong{font-size:14px}.action-item p{font-size:13px;line-height:1.55}
+.all-clear p{font-size:13px}.insight-panel span{font-size:12px}.insight-panel strong{font-size:14px}.insight-panel p{font-size:13px;line-height:1.6}
+
+.form-section>label:first-child,.form-label{font-size:14px}.check-list strong{font-size:14px}.check-list span{font-size:12px}
+.live-result h2{font-size:26px}.live-result>p{font-size:14px}.live-metrics span{font-size:12px}.live-metrics strong{font-size:22px}.live-metrics small{font-size:12px}
+.mini-actions span{font-size:13px}.verified-badge{font-size:12px}
+.rule-number{font-size:12px}.rule-list strong{font-size:14px}.rule-list p,.rule-scope{font-size:12px}.rule-note p{font-size:13px}
+.dialog-status-row>span:last-child{font-size:12px}.detail-dialog [data-slot="dialog-title"]{font-size:24px}
+.detail-values span{font-size:12px}.detail-values strong{font-size:17px}
+.explain-box>div,.next-action-box>div{font-size:13px}.explain-box p,.next-action-box p{font-size:14px}
+.source-box div span,.source-version{font-size:12px}.source-box div strong{font-size:13px}
+.formula-grid span,.formula-grid code,.formula-grid p{font-size:13px}.formula-grid strong{font-size:32px}
+
+.ai-badge{font-size:12px}.ai-panel-heading h2{font-size:20px}.ai-panel-heading p{font-size:13px;line-height:1.55}
+.ai-empty strong,.ai-error strong{font-size:14px}.ai-empty p,.ai-error p{font-size:13px}.ai-error small{font-size:12px}
+.ai-summary-card>span,.risk-card>span{font-size:12px}.ai-summary-card p,.risk-card p{font-size:14px}.risk-card strong{font-size:22px}
+.ai-priorities h3,.ai-warnings h3{font-size:15px}.priority-rank{font-size:12px}.ai-priorities h4{font-size:14px}
+.ai-priorities p{font-size:13px}.ai-priorities article strong,.ai-priorities small{font-size:12px}.ai-warnings p{font-size:13px}
+.ai-meta{font-size:12px}.ai-confidence p,.ai-fixed-note{font-size:12px}
+
+.data-badge,.engine-badge{font-size:12px}.curriculum-hero h2,.recommendation-hero h2{font-size:23px}
+.curriculum-hero p,.recommendation-hero p{font-size:13px}.department-toggle strong{font-size:14px}.department-toggle span{font-size:12px}
+.catalog-stats span{font-size:12px}.catalog-stats strong{font-size:23px}.catalog-stats small{font-size:11px}
+.conflict-banner strong{font-size:13px}.conflict-banner p{font-size:12px}.catalog-nav button,.catalog-tools input,.catalog-tools select{font-size:13px}
+.catalog-table{min-width:980px}.catalog-table th{height:42px;font-size:12px}.catalog-table td{height:52px;font-size:13px}
+.catalog-table code{font-size:12px}.catalog-table td>strong{font-size:13px}.catalog-table td>small{font-size:11px}
+.course-type,.double-required,.verify-ok,.verify-conflict{font-size:11px}.empty-catalog{font-size:13px}
+.history-marker span,.history-title code{font-size:12px}.history-title>span,.history-title small{font-size:11px}
+.history-change span,.history-main>p{font-size:12px}.inline-sources a{font-size:11px}
+.rule-card-top>span,.rule-card-top small{font-size:11px}.graduation-rule-grid h3{font-size:14px}.applies-to{font-size:11px}
+.rule-values span{font-size:11px}.rule-values strong{font-size:13px}.rule-card-note{font-size:12px}
+.source-index{font-size:12px}.source-catalog strong{font-size:13px}.source-catalog p,.source-catalog small{font-size:11px}
+.catalog-principle>span,.catalog-principle li:before{font-size:11px}.catalog-principle h3{font-size:17px}.catalog-principle li strong{font-size:12px}.catalog-principle li p,.snapshot-note{font-size:11px}
+
+.path-summary span{font-size:12px}.path-summary strong{font-size:18px}.path-summary small{font-size:11px}
+.recommendation-targets span{font-size:12px}.recommendation-targets strong{font-size:16px}.recommendation-targets p{font-size:11px}
+.candidate-title code{font-size:12px}.candidate-title strong{font-size:14px}.candidate-priority{font-size:11px}
+.candidate-main>p{font-size:13px}.impact-tags span{font-size:11px}.candidate-main>small{font-size:11px}
+.what-if-heading span{font-size:11px}.what-if-heading h2{font-size:18px}.planner-buttons button{font-size:12px}
+.what-if-total div span{font-size:11px}.what-if-total div strong{font-size:23px}.what-if-total>p{font-size:12px}
+.what-if-rows article>div strong{font-size:12px}.what-if-rows article>div span{font-size:11px}.what-if-rows article>p{font-size:12px}.what-if-rows article>small{font-size:11px}
+.unresolved-panel>div,.unresolved-panel article strong{font-size:12px}.unresolved-panel article p{font-size:11px}
+.recommendation-basis strong{font-size:12px}.recommendation-basis p,.recommendation-basis a{font-size:11px}
+.no-course-plan span{font-size:12px}.no-course-plan h2{font-size:21px}.no-course-plan p{font-size:14px}
+
+@media(max-width:720px){
+  .page-heading h1{font-size:28px}.decision-title-row h2{font-size:25px}
+  .case-switcher{grid-template-columns:1fr}.case-switcher>button{min-height:108px}
+  .recommendation-targets{grid-template-columns:1fr}.recommendation-targets article+article{border-left:0;border-top:1px solid #e0e6ec}
+}
