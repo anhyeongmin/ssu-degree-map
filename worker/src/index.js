@@ -83,6 +83,7 @@ export function validateInput(input) {
 }
 
 const PROHIBITED_JUDGMENT = /졸업\s*(?:가능성|가능|불가능)/;
+const FALSE_ALL_FULFILLED = /모든\s*(?:졸업)?요건.{0,20}충족/;
 
 function outputStrings(value) {
   return [
@@ -102,10 +103,14 @@ export function validateModelOutput(value, input) {
     && ["title", "reason", "action", "basis"].every((key) => isShortString(item[key], 1000)))) return false;
   if (!isStringArray(value.warnings, 10) || !isShortString(value.confidenceNote, 1000)) return false;
   if (outputStrings(value).some((text) => PROHIBITED_JUDGMENT.test(text))) return false;
+  if (new Set(value.warnings).size !== value.warnings.length) return false;
+  if (new Set(value.priorities.map((item) => item.title)).size !== value.priorities.length) return false;
   if (input) {
     const fulfilled = new Set(input.fulfilled);
     if (value.priorities.some((item) => fulfilled.has(item.title))) return false;
     if (input.recommendedActions.length === 1 && value.priorities.length !== 1) return false;
+    const unresolvedCount = input.unmet.length + input.planned.length + input.evidenceNeeded.length + input.departmentConfirmation.length;
+    if (unresolvedCount > 0 && FALSE_ALL_FULFILLED.test(value.summary)) return false;
   }
   return true;
 }
@@ -146,6 +151,9 @@ function buildMessages(input) {
         "입력에 없는 과목명, 학점, 규정, 기한을 만들지 마세요. 모호하면 반드시 '확인 필요'로 쓰세요.",
         "우선순위는 반드시 1개 이상 3개 이하이며 입력 recommendedActions와 미충족·충족예정·증빙 필요·학과 확인 필요 요건의 action과 basis에만 근거해야 합니다.",
         "fulfilled에 포함된 충족 요건은 행동 우선순위에 넣지 마세요. recommendedActions가 1개이면 우선순위도 정확히 1개만 만드세요.",
+        "unmet, planned, evidenceNeeded, departmentConfirmation 중 하나라도 비어 있지 않으면 '모든 요건 충족' 또는 '모든 졸업요건 충족'이라고 쓰지 마세요.",
+        "warnings에는 증빙 또는 학과 확인이 필요한 서로 다른 항목만 넣고 같은 문장을 반복하지 마세요.",
+        "confidenceNote에는 AI 설명의 한계와 u-SAINT 또는 소속 학과의 공식 확인 필요성을 적으세요.",
         "저학년은 장기 이수계획을, 4학년·졸업유예는 즉시 행정·졸업요건을 우선하세요.",
         "복수전공 사례는 주전공·복수전공·융합전공을 섞지 말고 구분하세요.",
         caseGuidance,
@@ -190,7 +198,7 @@ const worker = {
         parsed = await generate([
           ...messages,
           { role:"assistant", content:JSON.stringify(parsed) },
-          { role:"user", content:"직전 응답은 충족 요건을 우선순위에 넣었거나 졸업 가능 여부를 새로 판정했습니다. 입력의 미완료 행동만 사용하고 금지 표현 없이 JSON을 다시 작성하세요." },
+          { role:"user", content:"직전 응답은 충족 요건을 우선순위에 넣었거나 졸업 가능 여부를 새로 판정했거나 미완료 요건이 있는데 모든 요건을 충족했다고 썼거나 경고를 반복했습니다. 입력의 미완료 행동만 사용하고 금지 표현과 중복 없이 JSON을 다시 작성하세요." },
         ]);
       }
       if (!validateModelOutput(parsed, checked.value)) return jsonResponse({ error:"AI 응답 검증에 실패했습니다." }, 502, origin);
