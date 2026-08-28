@@ -6,6 +6,7 @@ import {
   FileCheck2, GraduationCap, Info, School, ShieldCheck, Sparkles,
 } from "lucide-react";
 import { AiAnalysisPanel } from "@/components/ai-analysis-panel";
+import { CurriculumExplorer } from "@/components/curriculum-explorer";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -50,7 +51,7 @@ export default function Home() {
       <header className="topbar">
         <div className="topbar-inner">
           <div className="brand" aria-label="SSU DegreeMap"><div className="brand-mark">SSU</div><div><strong>DegreeMap</strong><span>학사요건 분석 시스템</span></div></div>
-          <div className="top-meta"><span>2026.08.28 자료 기준</span><span className="divider" /><span>익명 졸업사정 사례</span></div>
+          <div className="top-meta"><span>사례 2026.08.28 · 공식자료 2026.08.29</span><span className="divider" /><span>익명 졸업사정 사례</span></div>
         </div>
       </header>
 
@@ -81,6 +82,7 @@ export default function Home() {
         <Tabs defaultValue="audit" className="degree-tabs">
           <TabsList variant="line" className="main-tabs">
             <TabsTrigger value="audit">졸업사정 결과</TabsTrigger>
+            <TabsTrigger value="curriculum">교과목·변경 이력</TabsTrigger>
             <TabsTrigger value="progress">진행률 산식</TabsTrigger>
             <TabsTrigger value="rules">적용 규칙·근거</TabsTrigger>
           </TabsList>
@@ -125,6 +127,10 @@ export default function Home() {
             </div>
 
         <AiAnalysisPanel key={studentCase.id} studentCase={studentCase} />
+          </TabsContent>
+
+          <TabsContent value="curriculum" className="tab-panel">
+            <CurriculumExplorer key={studentCase.id} caseId={studentCase.id} />
           </TabsContent>
 
           <TabsContent value="progress" className="tab-panel">
