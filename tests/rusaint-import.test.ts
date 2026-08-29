@@ -52,6 +52,7 @@ test("rusaint 졸업요건·학생정보·성적을 익명 로컬 사례로 변�
   assert.equal(result.studentCase.requirements.length, 3);
   assert.equal(result.studentCase.completedCourses?.[0].code, "21500001");
   assert.equal(calculateProgress(result.studentCase).creditPercent, 87.2);
+  assert.equal(buildAiPayload(result.studentCase).caseId, "B");
 });
 
 test("이름·학번은 StudentCase와 AI 요청에 남지 않는다", () => {

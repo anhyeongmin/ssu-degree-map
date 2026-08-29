@@ -230,8 +230,19 @@ export function buildAiPayload(studentCase: StudentCase) {
     basis: item.source,
   }));
   const byStatus = (status: RequirementStatus) => requirements.filter((item) => item.status === status).map((item) => item.label);
+  const localAiProfile = studentCase.id === "I"
+    ? studentCase.totalEarned >= studentCase.totalRequired && studentCase.requirements.some((item) => item.kind === "administrative" && !fulfilledStatuses.has(item.status))
+      ? "A"
+      : /다전공|복수전공|융합전공|연계전공/.test(studentCase.majorType)
+        ? "B"
+        : Number.parseInt(studentCase.yearLabel, 10) <= 2
+          ? "C"
+          : "D"
+    : studentCase.id;
   return {
-    caseId: studentCase.id,
+    // The deployed Worker uses A-D only as guidance profiles. A locally imported
+    // case is mapped deterministically while every actual requirement remains intact.
+    caseId: localAiProfile,
     department: studentCase.department,
     admissionYear: studentCase.admissionYear,
     yearLabel: studentCase.yearLabel,
