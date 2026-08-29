@@ -1,4 +1,4 @@
-name: rusaint browser WASM spike
+name: rusaint browser WASM
 
 on:
   workflow_dispatch:
@@ -27,12 +27,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: rusaint-wasm-spike
-      - name: Prepare browser-only rusaint transport patch
-        run: |
-          git clone https://github.com/EATSTEAK/rusaint.git rusaint-browser-upstream
-          git -C rusaint-browser-upstream checkout 103e04a8ccd37fa383ab339d6e39045983b5e2f2
-          sed -i 's#ozra = { version = "0.0.4" }#ozra = { version = "0.0.4", default-features = false, features = ["gzip"] }#' rusaint-browser-upstream/packages/rusaint/Cargo.toml
-          sed -i 's#rusaint = { version = "0.16.3", default-features = false, features = \["application"\] }#rusaint = { path = "../rusaint-browser-upstream/packages/rusaint", default-features = false, features = ["application"] }#' rusaint-wasm-spike/Cargo.toml
-      - run: cargo tree --target wasm32-unknown-unknown -e features -i tokio --manifest-path rusaint-wasm-spike/Cargo.toml
-      - run: cargo build --release --target wasm32-unknown-unknown --manifest-path rusaint-wasm-spike/Cargo.toml
-      - run: ls -lh rusaint-wasm-spike/target/wasm32-unknown-unknown/release/*.wasm
+      - name: Compile browser adapter
+        run: cargo build --release --target wasm32-unknown-unknown --manifest-path rusaint-wasm-spike/Cargo.toml
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --locked
+      - name: Generate browser module
+        run: wasm-pack build rusaint-wasm-spike --target web --release --out-dir ../public/rusaint-web --out-name degree_map_rusaint_web
+      - name: Verify generated module
+        run: ls -lh public/rusaint-web/degree_map_rusaint_web.js public/rusaint-web/degree_map_rusaint_web_bg.wasm
