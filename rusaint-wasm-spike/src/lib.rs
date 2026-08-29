@@ -9,7 +9,7 @@ use wdpe::{
     body::{Body, BodyUpdate},
     command::{WebDynproCommandExecutor, element::{action::ButtonPressEventCommand, complex::SapTableBodyCommand, system::{ClientInspectorNotifyEventCommand, CustomClientInfoEventCommand, LoadingPlaceholderLoadEventCommand}, text::InputFieldValueCommand}},
     define_elements,
-    element::{action::Button, complex::{SapTable, sap_table::FromSapTable}, definition::ElementDefinition, layout::LoadingPlaceholder, parser::ElementParser, system::{ClientInspector, Custom, CustomClientInfo}, text::{InputField, InputFieldDef}},
+    element::{action::Button, complex::{SapTable, sap_table::FromSapTable}, definition::ElementDefinition, parser::ElementParser, system::{ClientInspector, Custom, CustomClientInfo, LoadingPlaceholder}, text::{InputField, InputFieldDef}, Element},
     error::{ElementError, WebDynproError},
     state::WebDynproState,
 };
@@ -20,6 +20,30 @@ const INITIAL_CLIENT_DATA_WD01: &str = "ClientWidth:1920px;ClientHeight:1000px;S
 const INITIAL_CLIENT_DATA_WD02: &str = "ThemedTableRowHeight:25px";
 
 fn js_error(error: impl std::fmt::Display) -> JsValue { JsValue::from_str(&error.to_string()) }
+
+trait InputFieldExt {
+    fn value_string(&self) -> Result<String, WebDynproError>;
+    fn value_into_u32(&self) -> Result<u32, WebDynproError>;
+    fn value_into_f32(&self) -> Result<f32, WebDynproError>;
+}
+
+impl InputFieldExt for InputField<'_> {
+    fn value_string(&self) -> Result<String, WebDynproError> {
+        Ok(self.value().ok_or_else(|| ElementError::NoSuchContent {
+            element:self.id().to_owned(), content:"value of InputField".to_owned(),
+        })?.to_owned())
+    }
+    fn value_into_u32(&self) -> Result<u32, WebDynproError> {
+        self.value_string()?.trim().parse().map_err(|error:std::num::ParseIntError| ElementError::InvalidContent {
+            element:self.id().to_owned(), content:error.to_string(),
+        }.into())
+    }
+    fn value_into_f32(&self) -> Result<f32, WebDynproError> {
+        self.value_string()?.trim().parse().map_err(|error:std::num::ParseFloatError| ElementError::InvalidContent {
+            element:self.id().to_owned(), content:error.to_string(),
+        }.into())
+    }
+}
 
 #[derive(Serialize)]
 struct ProxyRequest { url: String, form: String }
@@ -101,7 +125,7 @@ impl<'body> FromSapTable<'body> for GraduationRequirement {
 #[wasm_bindgen]
 pub struct BrowserGraduationClient { state: WebDynproState }
 
-impl BrowserGraduationClient {
+impl<'a> BrowserGraduationClient {
     define_elements! {
         CLIENT_INSPECTOR_WD01: ClientInspector<'a> = "WD01";
         CLIENT_INSPECTOR_WD02: ClientInspector<'a> = "WD02";
@@ -167,8 +191,8 @@ impl BrowserGraduationClient {
     pub fn anonymous_student_json(&self) -> Result<String, JsValue> {
         let parser = ElementParser::new(self.state.body());
         let mut majors = Vec::new();
-        const MAJORS: &[InputFieldDef] = &[Self::CG_IDT1, Self::CG_IDT2, Self::CG_IDT3, Self::CG_IDT4];
-        for definition in MAJORS {
+        let majors_definitions: [InputFieldDef; 4] = [Self::CG_IDT1, Self::CG_IDT2, Self::CG_IDT3, Self::CG_IDT4];
+        for definition in &majors_definitions {
             let value = parser.element_from_def(definition).and_then(|field| field.value_string()).unwrap_or_default();
             if value.trim().is_empty() { break; }
             majors.push(value);
