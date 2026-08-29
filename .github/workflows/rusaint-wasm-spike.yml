@@ -8,6 +8,10 @@ on:
     paths:
       - "rusaint-wasm-spike/**"
       - ".github/workflows/rusaint-wasm-spike.yml"
+  pull_request:
+    paths:
+      - "rusaint-wasm-spike/**"
+      - ".github/workflows/rusaint-wasm-spike.yml"
 
 permissions:
   contents: read
