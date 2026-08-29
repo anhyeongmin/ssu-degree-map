@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   groundModelOutput,
+  groundRuleExtractionOutput,
   validateInput,
   validateModelOutput,
   validateRuleExtractionInput,
@@ -152,4 +153,18 @@ test("규정 추출 결과의 인용문은 원문에 실제 존재해야 한다"
   assert.equal(validateRuleExtractionOutput(output, validRuleInput), true);
   output.candidates[0].citedText = "원문에 없는 문장";
   assert.equal(validateRuleExtractionOutput(output, validRuleInput), false);
+});
+
+test("AI 인용문이 원문과 다르면 정확한 원문 발췌로 교정하고 확인 필요로 낮춘다", () => {
+  const output = {
+    candidates:[{
+      title:"졸업확정신고", appliesTo:"2020학년도 이후", conditionType:"행정", threshold:"신고 완료",
+      effectiveFrom:"확인 필요", citedText:"원문과 비슷하지만 존재하지 않는 인용문", ambiguity:"없음", confidence:"높음",
+    }],
+  };
+  const grounded = groundRuleExtractionOutput(output, validRuleInput);
+  assert.equal(validRuleInput.sourceText.includes(grounded.candidates[0].citedText), true);
+  assert.equal(grounded.candidates[0].confidence, "확인 필요");
+  assert.ok(grounded.candidates[0].ambiguity.includes("담당자 확인"));
+  assert.equal(validateRuleExtractionOutput(grounded, validRuleInput), true);
 });

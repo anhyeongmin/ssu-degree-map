@@ -238,6 +238,35 @@ export function validateRuleExtractionOutput(value, input) {
     && input.sourceText.includes(item.citedText));
 }
 
+function exactSourceExcerpt(sourceText, candidate) {
+  const terms = `${candidate.title || ""} ${candidate.threshold || ""}`
+    .split(/[^0-9A-Za-z가-힣]+/)
+    .filter((term) => term.length >= 2);
+  const matchedTerm = terms.find((term) => sourceText.includes(term));
+  const center = matchedTerm ? sourceText.indexOf(matchedTerm) : 0;
+  const start = Math.max(0, center - 80);
+  return sourceText.slice(start, Math.min(sourceText.length, start + 320)).trim();
+}
+
+export function groundRuleExtractionOutput(value, input) {
+  if (!value || typeof value !== "object" || !Array.isArray(value.candidates)) return value;
+  return {
+    ...value,
+    candidates:value.candidates.map((candidate) => {
+      if (candidate && typeof candidate.citedText === "string" && input.sourceText.includes(candidate.citedText)) return candidate;
+      const note = "AI 인용문이 원문과 일치하지 않아 서버가 정확한 원문 발췌로 교정했습니다. 담당자 확인이 필요합니다.";
+      return {
+        ...candidate,
+        citedText:exactSourceExcerpt(input.sourceText, candidate || {}),
+        confidence:"확인 필요",
+        ambiguity:typeof candidate?.ambiguity === "string" && candidate.ambiguity !== "없음"
+          ? `${candidate.ambiguity} ${note}`.slice(0, 500)
+          : note,
+      };
+    }),
+  };
+}
+
 function buildRuleExtractionMessages(input) {
   return [
     {
@@ -267,7 +296,7 @@ async function handleRuleExtraction(input, env, origin) {
       temperature:0,
     });
     const output = result?.response ?? result;
-    const parsed = typeof output === "string" ? JSON.parse(output) : output;
+    const parsed = groundRuleExtractionOutput(typeof output === "string" ? JSON.parse(output) : output, input);
     if (!validateRuleExtractionOutput(parsed, input)) return jsonResponse({ error:"AI 규정 후보가 원문 근거 검증을 통과하지 못했습니다." }, 502, origin);
     return jsonResponse({ ...parsed, model, generatedAt:new Date().toISOString(), aiGenerated:true, sourceId:input.sourceId }, 200, origin);
   } catch (error) {
