@@ -27,5 +27,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: rusaint-wasm-spike
+      - run: cargo tree --target wasm32-unknown-unknown -e features -i tokio --manifest-path rusaint-wasm-spike/Cargo.toml
       - run: cargo build --release --target wasm32-unknown-unknown --manifest-path rusaint-wasm-spike/Cargo.toml
       - run: ls -lh rusaint-wasm-spike/target/wasm32-unknown-unknown/release/*.wasm
