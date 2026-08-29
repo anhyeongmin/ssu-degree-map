@@ -103,7 +103,11 @@ export function validateRuleExtractionInput(input) {
 }
 
 const PROHIBITED_JUDGMENT = /졸업\s*(?:가능성|가능|불가능)/;
-const FALSE_ALL_FULFILLED = /모든\s*(?:졸업)?요건.{0,20}충족/;
+const FALSE_ALL_FULFILLED = /모든\s*(?:졸업\s*)?요건.{0,20}충족/;
+
+function sanitizeAiText(value) {
+  return typeof value === "string" ? value.replace(PROHIBITED_JUDGMENT, "졸업 준비 상태") : value;
+}
 
 function outputStrings(value) {
   return [
@@ -121,28 +125,33 @@ export function groundModelOutput(value, input) {
   const actionableRequirements = input.requirements.filter((item) => !["충족", "비적용"].includes(item.status));
   const requestedPriorityCount = Math.max(1, Math.min(3, input.recommendedActions.length || actionableRequirements.length));
   const rawPriorities = Array.isArray(value.priorities) ? value.priorities : [];
-  const priorities = rawPriorities.slice(0, requestedPriorityCount).map((priority, index) => {
-    const matched = actionableRequirements.find((item) => priority?.title?.includes(item.label) || item.label.includes(priority?.title || ""))
-      || actionableRequirements.find((item) => item.action === priority?.action)
-      || actionableRequirements.find((item) => item.action === input.recommendedActions[index])
-      || actionableRequirements[index];
-    return matched ? {
+  const priorityRequirements = input.recommendedActions
+    .map((action) => actionableRequirements.find((item) => item.action === action))
+    .filter((item, index, items) => item && items.findIndex((candidate) => candidate?.id === item.id) === index)
+    .slice(0, requestedPriorityCount);
+  const priorities = priorityRequirements.map((matched, index) => {
+    const priority = rawPriorities[index] ?? {};
+    return {
       ...priority,
       rank:index + 1,
       title:matched.label,
+      reason:sanitizeAiText(priority.reason) || `${matched.label} 항목을 우선 확인해야 합니다.`,
       action:matched.action,
       basis:matched.basis,
-    } : priority;
+    };
   });
-  const safeSummary = typeof value.summary === "string"
-    ? value.summary.replace(PROHIBITED_JUDGMENT, "졸업 준비 상태")
-    : value.summary;
+  const unresolvedCount = input.unmet.length + input.planned.length + input.evidenceNeeded.length + input.departmentConfirmation.length;
+  const safeSummary = unresolvedCount > 0 && typeof value.summary === "string"
+    ? sanitizeAiText(value.summary).replace(FALSE_ALL_FULFILLED, "확인된 다수의 졸업요건을 충족")
+    : sanitizeAiText(value.summary);
   const warnings = Array.isArray(value.warnings)
     ? [...new Set(value.warnings.filter((warning) => allowedWarningLabels.some((label) => warning.includes(label))))]
     : value.warnings;
   return {
     ...value,
     summary:safeSummary,
+    riskReason:sanitizeAiText(value.riskReason),
+    confidenceNote:sanitizeAiText(value.confidenceNote),
     priorities,
     warnings,
   };

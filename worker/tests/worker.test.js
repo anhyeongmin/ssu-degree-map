@@ -49,6 +49,7 @@ test("충족 요건과 불필요한 우선순위를 차단한다", () => {
 test("미완료 요건이 있는데 모든 요건을 충족했다는 모순을 차단한다", () => {
   const output = { summary:"현재 모든 졸업요건을 충족했지만 신고는 미완료입니다.", riskLevel:"낮음", riskReason:"미완료 행정요건", priorities:[{ rank:1, title:"졸업확정신고", reason:"필요", action:"u-SAINT에서 신고", basis:"졸업확정신고 규칙" }], warnings:[], confidenceNote:"u-SAINT와 소속 학과의 공식 확인이 필요합니다." };
   assert.equal(validateModelOutput(output, validInput), false);
+  assert.equal(validateModelOutput({ ...output, summary:"현재 모든 졸업 요건을 충족했지만 신고는 미완료입니다." }, validInput), false);
 });
 
 test("중복 경고와 중복 우선순위를 차단한다", () => {
@@ -86,6 +87,31 @@ test("단일 추천 사례에서 AI의 초과 우선순위와 금지 판정 표�
   assert.equal(grounded.priorities[0].title, "졸업확정신고");
   assert.equal(grounded.summary.includes("졸업 가능성"), false);
   assert.equal(validateModelOutput(grounded, validInput), true);
+});
+
+test("여러 추천 행동은 모델 제목과 무관하게 규칙 엔진 순서로 고유하게 고정한다", () => {
+  const secondRequirement = {
+    id:"b", group:"전공", label:"전공필수", status:"충족예정", required:"12학점", earned:"9학점",
+    shortage:"3학점", action:"전공필수 3학점을 계획하세요.", basis:"전공필수 규칙",
+  };
+  const context = {
+    ...validInput,
+    caseId:"C",
+    yearLabel:"2학년",
+    requirements:[validInput.requirements[0], secondRequirement],
+    unmet:["졸업확정신고"],
+    planned:["전공필수"],
+    recommendedActions:["u-SAINT에서 신고", "전공필수 3학점을 계획하세요."],
+    ruleSources:["졸업확정신고 규칙", "전공필수 규칙"],
+  };
+  const repeated = { rank:1, title:"일반 안내", reason:"순서에 맞게 준비하세요.", action:"임의 행동", basis:"임의 근거" };
+  const output = {
+    summary:"2학년 장기 계획이 필요합니다.", riskLevel:"보통", riskReason:"장기 이수요건이 남았습니다.",
+    priorities:[repeated, { ...repeated, rank:2 }], warnings:[], confidenceNote:"공식 확인이 필요합니다.",
+  };
+  const grounded = groundModelOutput(output, context);
+  assert.deepEqual(grounded.priorities.map((item) => item.title), ["졸업확정신고", "전공필수"]);
+  assert.equal(validateModelOutput(grounded, context), true);
 });
 
 const validRuleInput = {
