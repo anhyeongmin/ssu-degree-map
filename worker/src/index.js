@@ -1,3 +1,5 @@
+import { handleUSaintRequest } from "./usaint-proxy.js";
+
 export const DEFAULT_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast";
 export const ALLOWED_ORIGINS = new Set([
   "https://anhyeongmin.github.io",
@@ -362,6 +364,7 @@ const worker = {
     if (!ALLOWED_ORIGINS.has(origin)) return jsonResponse({ error:"허용되지 않은 출처입니다." }, 403, "null");
     if (request.method === "OPTIONS") return new Response(null, { status:204, headers:corsHeaders(origin) });
     if (request.method !== "POST") return jsonResponse({ error:"POST 요청만 허용됩니다." }, 405, origin);
+    if (new URL(request.url).pathname.startsWith("/usaint/")) return handleUSaintRequest(request, env, origin);
     const contentLength = Number(request.headers.get("content-length") || "0");
     if (contentLength > MAX_BODY_BYTES) return jsonResponse({ error:"요청 본문이 너무 큽니다." }, 413, origin);
     const raw = await request.text();
