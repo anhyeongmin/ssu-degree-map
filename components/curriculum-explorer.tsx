@@ -9,6 +9,7 @@ import {
   catalogCourses, courseHistories, departmentLabels, graduationRules, officialSources,
   sourcesByIds, type DepartmentId,
 } from "@/lib/curriculum-data";
+import type { StudentCase } from "@/lib/degree-map";
 
 type ViewId = "courses" | "history" | "rules" | "sources";
 
@@ -19,8 +20,18 @@ const caseScope: Record<"A" | "B" | "C" | "D", { primary: DepartmentId; message:
   D: { primary: "mechanical", message: "기계공학 주전공·편입 사례에 적용되는 현재 공개 교과과정을 표시합니다." },
 };
 
-export function CurriculumExplorer({ caseId }: { caseId: "A" | "B" | "C" | "D" }) {
-  const [department, setDepartment] = useState<DepartmentId>(caseScope[caseId].primary);
+function scopeFor(studentCase: StudentCase) {
+  if (studentCase.id !== "I") return caseScope[studentCase.id];
+  const primary: DepartmentId = studentCase.department.includes("기계") ? "mechanical" : "ai";
+  return {
+    primary,
+    message:`로컬 u-SAINT 사례의 ${studentCase.department} 정보와 공개 교과목 스냅샷을 대조합니다. 실제 적용 이수구분은 u-SAINT 조회 결과를 우선 확인하세요.`,
+  };
+}
+
+export function CurriculumExplorer({ studentCase }: { studentCase: StudentCase }) {
+  const scope = scopeFor(studentCase);
+  const [department, setDepartment] = useState<DepartmentId>(scope.primary);
   const [view, setView] = useState<ViewId>("courses");
   const [query, setQuery] = useState("");
   const [year, setYear] = useState("all");
@@ -56,7 +67,7 @@ export function CurriculumExplorer({ caseId }: { caseId: "A" | "B" | "C" | "D" }
         <div>
           <span className="data-badge"><Database /> 공식 자료 스냅샷</span>
           <h2>교과목·코드·변경 이력</h2>
-          <p>{caseScope[caseId].message}</p>
+          <p>{scope.message}</p>
         </div>
         <div className="department-toggle" aria-label="학부 선택">
           {(["ai", "mechanical"] as DepartmentId[]).map((id) => (

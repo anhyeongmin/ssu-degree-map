@@ -113,7 +113,7 @@ export function LifecycleDashboard({ studentCase }: { studentCase: StudentCase }
 
         <section className="panel allocation-panel">
           <div className="panel-heading"><div><h2>다전공 학점 배정</h2><p>C-05 · C-06 중복합산하지 않고 승인된 관계만 배정합니다.</p></div><GitBranch /></div>
-          {studentCase.id === "B" ? (
+          {studentCase.id === "B" || (studentCase.id === "I" && /다전공|복수전공|융합전공|연계전공/.test(studentCase.majorType)) ? (
             <>
               <div className="allocation-totals">{Object.entries(allocation.totals).map(([track, credits]) => <div key={track}><span>{track}</span><strong>{credits}학점</strong></div>)}</div>
               <div className="allocation-list">{allocation.allocations.map((item) => <p key={`${item.attemptId}-${item.track}`}><CheckCircle2 /><strong>{item.courseName}</strong><span>{item.track} · {item.credits}학점</span><small>{item.reason}</small></p>)}</div>

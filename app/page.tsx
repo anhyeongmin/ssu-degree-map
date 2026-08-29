@@ -11,13 +11,14 @@ import { CourseRecommendationPlanner } from "@/components/course-recommendation-
 import { CurriculumExplorer } from "@/components/curriculum-explorer";
 import { EvidenceCenter } from "@/components/evidence-center";
 import { LifecycleDashboard } from "@/components/lifecycle-dashboard";
+import { USaintImporter } from "@/components/usaint-importer";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   calculateProgress, shortageLabel, studentCases, valueLabel,
-  type Requirement, type RequirementStatus,
+  type Requirement, type RequirementStatus, type StudentCase,
 } from "@/lib/degree-map";
 
 const statusStyle: Record<RequirementStatus, string> = {
@@ -33,9 +34,11 @@ const statusStyle: Record<RequirementStatus, string> = {
 const isComplete = (status: RequirementStatus) => status === "충족" || status === "면제" || status === "비적용";
 
 export default function Home() {
-  const [caseId, setCaseId] = useState<"A" | "B" | "C" | "D">("A");
+  const [caseId, setCaseId] = useState<StudentCase["id"]>("A");
+  const [importedCase, setImportedCase] = useState<StudentCase | null>(null);
   const [selectedRow, setSelectedRow] = useState<Requirement | null>(null);
-  const studentCase = useMemo(() => studentCases.find((item) => item.id === caseId) ?? studentCases[0], [caseId]);
+  const visibleCases = useMemo(() => importedCase ? [...studentCases, importedCase] : studentCases, [importedCase]);
+  const studentCase = useMemo(() => visibleCases.find((item) => item.id === caseId) ?? visibleCases[0], [caseId, visibleCases]);
   const progress = useMemo(() => calculateProgress(studentCase), [studentCase]);
   const actions = studentCase.requirements.filter((item) => !isComplete(item.status));
   const unmet = studentCase.requirements.filter((item) => item.status === "미충족");
@@ -46,7 +49,7 @@ export default function Home() {
       ? "2학년 현재 이수 중인 요건과 장기 계획 대상을 구분해 표시합니다."
       : `${studentCase.totalRequired - studentCase.totalEarned}학점과 ${unmet.filter((item) => item.kind !== "credit").length}개 비학점·행정 요건을 확인해야 합니다.`;
 
-  function changeCase(id: "A" | "B" | "C" | "D") {
+  function changeCase(id: StudentCase["id"]) {
     setCaseId(id);
     setSelectedRow(null);
   }
@@ -68,7 +71,7 @@ export default function Home() {
         </section>
 
         <section className="case-switcher" aria-label="익명 학생 사례 선택">
-          {studentCases.map((item) => (
+          {visibleCases.map((item) => (
             <button key={item.id} onClick={() => changeCase(item.id)} className={item.id === caseId ? "active" : ""} aria-pressed={item.id === caseId}>
               <span className="case-letter">{item.id}</span>
               <div><strong>{item.shortLabel}</strong><p>{item.department} · {item.yearLabel}</p><small>{item.totalEarned}/{item.totalRequired}학점 · {item.majorType}</small></div>
@@ -94,6 +97,7 @@ export default function Home() {
             <TabsTrigger value="progress">진행률 산식</TabsTrigger>
             <TabsTrigger value="rules">적용 규칙·근거</TabsTrigger>
             <TabsTrigger value="admin">관리자 콘솔</TabsTrigger>
+            <TabsTrigger value="import">u-SAINT 가져오기</TabsTrigger>
           </TabsList>
 
           <TabsContent value="audit" className="tab-panel">
@@ -147,7 +151,7 @@ export default function Home() {
           </TabsContent>
 
           <TabsContent value="curriculum" className="tab-panel">
-            <CurriculumExplorer key={studentCase.id} caseId={studentCase.id} />
+            <CurriculumExplorer key={studentCase.id} studentCase={studentCase} />
           </TabsContent>
 
           <TabsContent value="evidence" className="tab-panel">
@@ -176,6 +180,10 @@ export default function Home() {
 
           <TabsContent value="admin" className="tab-panel">
             <AdminConsole />
+          </TabsContent>
+
+          <TabsContent value="import" className="tab-panel">
+            <USaintImporter onImported={(nextCase) => { setImportedCase(nextCase); setCaseId("I"); setSelectedRow(null); }} />
           </TabsContent>
         </Tabs>
       </div>

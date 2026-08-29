@@ -55,6 +55,7 @@ const caseDepartments: Record<StudentCase["id"], DepartmentId[]> = {
   B: ["ai", "mechanical"],
   C: ["ai"],
   D: ["mechanical"],
+  I: ["ai", "mechanical"],
 };
 
 const explicitCompleted: Record<StudentCase["id"], string[]> = {
@@ -62,6 +63,7 @@ const explicitCompleted: Record<StudentCase["id"], string[]> = {
   B: ["고체역학실험", "기계공작실습", "열공학실험", "전산기계제도"],
   C: [],
   D: ["공학물리1", "인공지능프로그래밍"],
+  I: [],
 };
 
 const planCache = new Map<StudentCase["id"], RecommendationPlan>();
@@ -81,8 +83,14 @@ function impact(studentCase: StudentCase, id: string, credits: number): CourseIm
   return { requirementId:id, requirementName:requirement.name, credits };
 }
 
+function impactByName(studentCase: StudentCase, pattern: RegExp, credits: number) {
+  const requirement = studentCase.requirements.find((item) => pattern.test(item.name));
+  return requirement ? impact(studentCase, requirement.id, credits) : null;
+}
+
 function courseImpacts(studentCase: StudentCase, course: CatalogCourse) {
-  const items: Array<CourseImpact | null> = [impact(studentCase, `${studentCase.id.toLowerCase()}-total`, course.credits)];
+  const primary = studentCase.requirements.find((item) => item.progressPrimary);
+  const items: Array<CourseImpact | null> = [primary ? impact(studentCase, primary.id, course.credits) : null];
   if (studentCase.id === "B") {
     if (course.department === "ai" && course.classification === "전기") items.push(impact(studentCase, "b-major-basic", course.credits));
     if (course.department === "mechanical") items.push(impact(studentCase, "b-double-major", course.credits));
@@ -96,13 +104,27 @@ function courseImpacts(studentCase: StudentCase, course: CatalogCourse) {
     if (course.classification === "전필") items.push(impact(studentCase, "d-me-required", course.credits));
     if (course.classification === "전필" || course.classification === "전선") items.push(impact(studentCase, "d-major-total", course.credits));
   }
+  if (studentCase.id === "I") {
+    if (course.classification === "전기") items.push(impactByName(studentCase, /전공기초/, course.credits));
+    if (course.classification === "전필") items.push(impactByName(studentCase, /전공필수|복수전공필수/, course.credits));
+    if (course.classification === "전필" || course.classification === "전선") {
+      items.push(impactByName(studentCase, course.department === "mechanical" && studentCase.majorType.includes("다전공") ? /복수전공.*기계|기계.*복수전공/ : /전공합계|전공\(전필\+전선\)|전공.*학점/, course.credits));
+    }
+  }
   return items.filter((item): item is CourseImpact => Boolean(item));
 }
 
 function eligible(studentCase: StudentCase, course: CatalogCourse) {
   if (!caseDepartments[studentCase.id].includes(course.department)) return false;
+  if (studentCase.id === "I") {
+    const related = course.department === "mechanical"
+      ? `${studentCase.department} ${studentCase.majorType}`.includes("기계")
+      : `${studentCase.department} ${studentCase.majorType}`.includes("AI");
+    if (!related) return false;
+  }
   if (course.verification === "공식 자료 충돌") return false;
-  if (explicitCompleted[studentCase.id].includes(course.name)) return false;
+  const importedCompleted = studentCase.completedCourses?.map((item) => item.name) ?? [];
+  if ([...explicitCompleted[studentCase.id], ...importedCompleted].includes(course.name)) return false;
   if (studentCase.id === "A") return false;
   if (studentCase.id === "B" && course.department === "ai" && course.classification !== "전기") return false;
   if (studentCase.id === "C" && course.department === "ai" && course.year < 2) return false;
@@ -160,9 +182,12 @@ function calculateMinimalPath(candidates: CourseRecommendation[], targets: Recom
 }
 
 export function getCourseRecommendationPlan(studentCase: StudentCase): RecommendationPlan {
-  const cached = planCache.get(studentCase.id);
+  const cached = studentCase.id === "I" ? undefined : planCache.get(studentCase.id);
   if (cached) return cached;
-  const completedNames = explicitCompleted[studentCase.id];
+  const completedNames = [...new Set([
+    ...explicitCompleted[studentCase.id],
+    ...(studentCase.completedCourses?.map((item) => item.name) ?? []),
+  ])];
   const seenCourses = new Set<string>();
   const candidates = catalogCourses
     .filter((course) => eligible(studentCase, course))
@@ -218,7 +243,7 @@ export function getCourseRecommendationPlan(studentCase: StudentCase): Recommend
     ? "학점 요건은 이미 충족되어 추가 과목을 추천하지 않습니다. 졸업확정신고만 필요합니다."
     : "제공된 졸업사정표에는 전체 수강과목이 없으므로 공식 교과목 후보를 제시합니다. 선택 전 u-SAINT 이수내역과 실제 개설 여부를 대조해야 합니다.";
   const result = { candidates, targets, minimalPath, unresolved, completedNames, notice };
-  planCache.set(studentCase.id, result);
+  if (studentCase.id !== "I") planCache.set(studentCase.id, result);
   return result;
 }
 

@@ -28,7 +28,7 @@ export type Requirement = {
 };
 
 export type StudentCase = {
-  id: "A" | "B" | "C" | "D";
+  id: "A" | "B" | "C" | "D" | "I";
   label: string;
   shortLabel: string;
   department: string;
@@ -41,6 +41,15 @@ export type StudentCase = {
   uSaintStatus: "불가능" | "가능" | "확인 필요";
   dataNote: string;
   requirements: Requirement[];
+  completedCourses?: Array<{
+    code: string;
+    name: string;
+    credits: number;
+    classification: string;
+    year: string;
+    semester: string;
+    grade: string;
+  }>;
 };
 
 const req = (item: Requirement) => item;

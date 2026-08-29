@@ -147,6 +147,10 @@ const routeData: Record<CaseId, GeneralEducationRoute[]> = {
     { id:"d-old", name:"입학연도별 기존조건", credits:{earned:29,required:9}, areas:{earned:3,required:3}, status:"충족", missing:"없음", basis:"2025학번 Balance 교양선택 기준" },
     { id:"d-integrated", name:"교양 통합조건", credits:{earned:29,required:9}, areas:{earned:3,required:3}, status:"충족", missing:"없음", basis:"교양 통합 이수체계" },
   ],
+  I: [
+    { id:"i-official", name:"u-SAINT 표시 경로", credits:{earned:null,required:null}, areas:{earned:null,required:null}, status:"학과 확인 필요", missing:"가져온 졸업사정표의 교양 세부 행을 확인하세요.", basis:"rusaint 로컬 조회 결과" },
+    { id:"i-integrated", name:"교양 통합조건", credits:{earned:null,required:null}, areas:{earned:null,required:null}, status:"학과 확인 필요", missing:"영역별 이수내역은 공식 교양 규칙과 추가 대조가 필요합니다.", basis:"숭실대학교 교양 이수체계" },
+  ],
 };
 
 const qualificationData: Record<CaseId, QualificationRoute[]> = {
@@ -166,6 +170,9 @@ const qualificationData: Record<CaseId, QualificationRoute[]> = {
   D: [
     { id:"d-thesis", title:"기계공학 졸업논문", status:"학과 확인 필요", evidence:"계획서·진행학기·승인 여부 미확인", basis:"기계공학부 졸업논문 안내" },
     { id:"d-english", title:"별도 영어요건", status:"학과 확인 필요", evidence:"적용 규정 확인 자료 없음", basis:"공식 규칙이 등록된 경우에만 적용" },
+  ],
+  I: [
+    { id:"i-qualification", title:"학과 졸업자격·영어요건", status:"학과 확인 필요", evidence:"가져온 졸업사정 행과 최신 학과 공지를 대조해야 함", basis:"rusaint 로컬 조회 결과 · 학과 공식 공지" },
   ],
 };
 
@@ -187,6 +194,9 @@ const evidenceData: Record<CaseId, EvidenceRecord[]> = {
     { id:"d-e-transfer", type:"편입·외부학점", title:"편입 인정학점", stage:"u-SAINT 반영", status:"충족", nextAction:"반영된 이수구분을 최종 점검하세요.", office:"학사팀·기계공학부", basis:"편입 지정과목 충족 표시" },
     { id:"d-e-thesis", type:"논문·시험", title:"기계공학 졸업논문", stage:"확인 필요", status:"학과 확인 필요", nextAction:"계획서·2학기 진행·승인 상태를 즉시 확인하세요.", office:"기계공학부", basis:"기계공학부 졸업논문 안내" },
     { id:"d-e-declare", type:"행정신고", title:"졸업확정신고", stage:"미보유", status:"미충족", nextAction:"신고 가능 기간을 확인해 u-SAINT에서 완료하세요.", office:"학사팀", basis:"졸업확정신고 규칙" },
+  ],
+  I: [
+    { id:"i-e-local", type:"행정신고", title:"가져온 비학점·행정요건", stage:"확인 필요", status:"학과 확인 필요", nextAction:"졸업사정표의 미충족 행을 열어 증빙·신고·학과확인 항목을 구분하세요.", office:"소속 학과·학사팀", basis:"rusaint 로컬 조회 결과" },
   ],
 };
 
@@ -351,6 +361,29 @@ export function allocateCredits(attempts: CreditAttempt[], targetNeeds: Record<s
 }
 
 export function getCaseAllocation(studentCase: StudentCase): CreditAllocation {
+  if (studentCase.id === "I") {
+    const targets = Object.fromEntries(studentCase.requirements
+      .filter((item) => /복수전공|융합전공|연계전공|다전공/.test(`${item.group} ${item.name}`) && item.required !== null)
+      .map((item) => [item.name, item.required ?? 0]));
+    if (!Object.keys(targets).length) return { allocations:[], totals:{}, unresolved:["가져온 졸업사정표에서 수치가 있는 다전공 요건을 찾지 못했습니다."] };
+    const attempts: CreditAttempt[] = (studentCase.completedCourses ?? [])
+      .filter((course) => /복수|융합|연계|다전공/.test(course.classification))
+      .map((course, index) => {
+        const matchingTracks = Object.keys(targets).filter((target) => target.includes(course.classification.replace(/필수|선택/g, "")));
+        return {
+          id:`i-course-${index}`,
+          name:course.name,
+          credits:course.credits,
+          eligibleTracks:matchingTracks.length ? matchingTracks : Object.keys(targets),
+          currentTrack:Object.keys(targets)[0],
+          canDoubleCount:false,
+          verified:Boolean(course.classification),
+        };
+      });
+    const result = allocateCredits(attempts, targets);
+    if (!attempts.length) result.unresolved.push("이수구분별 성적 JSON에서 다전공 과목을 식별하지 못했습니다. 학점 중복인정은 학과 확인이 필요합니다.");
+    return result;
+  }
   if (studentCase.id !== "B") return { allocations:[], totals:{}, unresolved:["다전공 배정 대상 사례가 아닙니다."] };
   const attempts: CreditAttempt[] = [
     { id:"b-me-1", name:"고체역학실험", credits:3, eligibleTracks:["기계공학 복수전공"], currentTrack:"기계공학 복수전공", canDoubleCount:false, verified:true },

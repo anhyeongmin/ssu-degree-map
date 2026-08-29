@@ -30,8 +30,28 @@
 - `C-01~09`: 과목 계보, 교양 기존/통합 OR, 졸업자격·영어 경로, 학생관계 예외, 다전공 학점배정, 외부학점·최소성적의 확인 필요 보존
 - `E-01~04`: 증빙 보유·제출·승인·u-SAINT 반영 분리, 행정절차, 유효기간 경고
 - `A-01~06`: Workers AI 규정 후보 추출, 담당자 승인 게이트, 변경 영향분석, 규칙 버전·감사, 반복 위험 분석, 216개 회귀시험
+- `rusaint` 로컬 커넥터: 실제 u-SAINT 졸업사정 학생정보·요건·이수구분별 성적 JSON 가져오기, 개인정보 제거, 기존 이수과목 추천 제외
 
 상세기획서가 요구한 대표 복잡 사례를 완전하게 시연하는 범위입니다. 모든 학과의 비공개 규정, 로그인된 u-SAINT 자동 연동, 실제 담당자 승인 저장은 학교 권한과 내부 API가 필요한 확장 지점으로 분리하며 연결된 것처럼 표시하지 않습니다.
+
+## 실제 u-SAINT 데이터 가져오기
+
+공개 GitHub Pages가 학번·비밀번호·세션을 취급하지 않도록 [rusaint](https://github.com/EATSTEAK/rusaint) CLI는 학생 PC에서만 실행합니다. 웹의 `u-SAINT 가져오기` 탭은 rusaint가 만든 JSON을 브라우저 메모리에서 읽어 익명 `내 u-SAINT` 사례를 생성합니다.
+
+```powershell
+rusaint --format json -o graduation-student.json graduation student-info
+rusaint --format json -o graduation-requirements.json graduation requirements
+rusaint --format json -o grades.json grades by-classification
+```
+
+- `graduation-requirements.json`은 필수입니다.
+- 학생정보 JSON의 이름·학번 등 식별 필드는 사례 생성 시 제거합니다.
+- 비밀번호, 토큰, 쿠키, 세션 필드가 발견되면 파일을 거부합니다.
+- 원본 JSON은 GitHub Pages, Cloudflare Worker 또는 Workers AI로 업로드하지 않습니다.
+- AI에는 기존과 동일하게 익명 구조화 판정 데이터만 전달합니다.
+- 가져온 성적의 과목명은 추가 이수과목 추천에서 제외합니다.
+
+rusaint는 MIT 라이선스의 비공식 u-SAINT 클라이언트입니다. 원 프로젝트의 저작권과 라이선스 고지는 [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md)에 보존합니다. 최종 졸업 판정과 최신 규정은 u-SAINT 및 소속 학과에서 다시 확인해야 합니다.
 
 ## 공식 교과 데이터
 
