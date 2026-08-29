@@ -27,11 +27,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: rusaint-wasm-spike
-      - run: cargo fetch --target wasm32-unknown-unknown --manifest-path rusaint-wasm-spike/Cargo.toml
-      - name: Inspect incompatible transport dependencies
+      - name: Prepare browser-only rusaint transport patch
         run: |
-          find "$CARGO_HOME/registry/src" -path '*/ozra-0.0.4/Cargo.toml' -print -exec sed -n '1,220p' {} \;
-          find "$CARGO_HOME/registry/src" -path '*/wdpe-0.4.3/Cargo.toml' -print -exec sed -n '1,220p' {} \;
+          git clone https://github.com/EATSTEAK/rusaint.git rusaint-browser-upstream
+          git -C rusaint-browser-upstream checkout 103e04a8ccd37fa383ab339d6e39045983b5e2f2
+          sed -i 's#ozra = { version = "0.0.4" }#ozra = { version = "0.0.4", default-features = false, features = ["gzip"] }#' rusaint-browser-upstream/packages/rusaint/Cargo.toml
+          sed -i 's#rusaint = { version = "0.16.3", default-features = false, features = \["application"\] }#rusaint = { path = "../rusaint-browser-upstream/packages/rusaint", default-features = false, features = ["application"] }#' rusaint-wasm-spike/Cargo.toml
       - run: cargo tree --target wasm32-unknown-unknown -e features -i tokio --manifest-path rusaint-wasm-spike/Cargo.toml
       - run: cargo build --release --target wasm32-unknown-unknown --manifest-path rusaint-wasm-spike/Cargo.toml
       - run: ls -lh rusaint-wasm-spike/target/wasm32-unknown-unknown/release/*.wasm
