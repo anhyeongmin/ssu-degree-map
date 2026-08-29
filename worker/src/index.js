@@ -109,6 +109,14 @@ function sanitizeAiText(value) {
   return typeof value === "string" ? value.replace(PROHIBITED_JUDGMENT, "졸업 준비 상태") : value;
 }
 
+function groundedRequirementReason(requirement, generatedReason) {
+  const safeReason = sanitizeAiText(generatedReason);
+  if (isShortString(safeReason, 1000) && safeReason.includes(requirement.label)) return safeReason;
+  const values = [`기준 ${requirement.required}`, `현재 ${requirement.earned}`];
+  if (requirement.shortage !== "-") values.push(`부족 ${requirement.shortage}`);
+  return `규칙 엔진에서 ${requirement.label} 항목은 ${requirement.status} 상태입니다. ${values.join(", ")}입니다.`;
+}
+
 function outputStrings(value) {
   return [
     value.summary,
@@ -135,7 +143,7 @@ export function groundModelOutput(value, input) {
       ...priority,
       rank:index + 1,
       title:matched.label,
-      reason:sanitizeAiText(priority.reason) || `${matched.label} 항목을 우선 확인해야 합니다.`,
+      reason:groundedRequirementReason(matched, priority.reason),
       action:matched.action,
       basis:matched.basis,
     };
@@ -147,10 +155,15 @@ export function groundModelOutput(value, input) {
   const warnings = Array.isArray(value.warnings)
     ? [...new Set(value.warnings.filter((warning) => allowedWarningLabels.some((label) => warning.includes(label))))]
     : value.warnings;
+  const safeRiskReason = sanitizeAiText(value.riskReason);
+  const unresolvedLabels = [...input.unmet, ...input.planned, ...input.evidenceNeeded, ...input.departmentConfirmation];
+  const riskReason = typeof safeRiskReason === "string" && safeRiskReason.trim().length >= 10
+    ? safeRiskReason
+    : `${unresolvedLabels.slice(0, 3).join(", ")} 항목이 아직 완료 또는 확인되지 않았습니다.`;
   return {
     ...value,
     summary:safeSummary,
-    riskReason:sanitizeAiText(value.riskReason),
+    riskReason,
     confidenceNote:sanitizeAiText(value.confidenceNote),
     priorities,
     warnings,

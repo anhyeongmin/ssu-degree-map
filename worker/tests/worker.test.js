@@ -106,11 +106,14 @@ test("여러 추천 행동은 모델 제목과 무관하게 규칙 엔진 순서
   };
   const repeated = { rank:1, title:"일반 안내", reason:"순서에 맞게 준비하세요.", action:"임의 행동", basis:"임의 근거" };
   const output = {
-    summary:"2학년 장기 계획이 필요합니다.", riskLevel:"보통", riskReason:"장기 이수요건이 남았습니다.",
-    priorities:[repeated, { ...repeated, rank:2 }], warnings:[], confidenceNote:"공식 확인이 필요합니다.",
+    summary:"2학년 장기 계획이 필요합니다.", riskLevel:"보통", riskReason:"2학년",
+    priorities:[repeated, { ...repeated, rank:2, reason:"기독교과목을 먼저 이수하세요." }], warnings:[], confidenceNote:"공식 확인이 필요합니다.",
   };
   const grounded = groundModelOutput(output, context);
   assert.deepEqual(grounded.priorities.map((item) => item.title), ["졸업확정신고", "전공필수"]);
+  assert.ok(grounded.priorities[0].reason.includes("졸업확정신고"));
+  assert.ok(grounded.priorities[1].reason.includes("전공필수"));
+  assert.ok(grounded.riskReason.includes("졸업확정신고"));
   assert.equal(validateModelOutput(grounded, context), true);
 });
 
