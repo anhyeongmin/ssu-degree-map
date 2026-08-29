@@ -2,6 +2,7 @@ export type RequirementStatus =
   | "충족"
   | "미충족"
   | "충족예정"
+  | "면제"
   | "증빙 필요"
   | "학과 확인 필요"
   | "비적용";
@@ -161,7 +162,7 @@ export const studentCases: StudentCase[] = [
   },
 ];
 
-const fulfilledStatuses = new Set<RequirementStatus>(["충족", "비적용"]);
+const fulfilledStatuses = new Set<RequirementStatus>(["충족", "면제", "비적용"]);
 
 export function calculateProgress(studentCase: StudentCase) {
   const primaryCredit = studentCase.requirements.find((item) => item.progressPrimary);
@@ -193,7 +194,7 @@ export function shortageLabel(requirement: Requirement) {
     const shortage = Math.max(0, requirement.required - requirement.earned);
     return shortage === 0 ? "-" : `${shortage}${requirement.unit}`;
   }
-  if (requirement.status === "충족" || requirement.status === "비적용") return "-";
+  if (requirement.status === "충족" || requirement.status === "면제" || requirement.status === "비적용") return "-";
   if (requirement.status === "증빙 필요") return "증빙";
   if (requirement.status === "학과 확인 필요") return "확인";
   return requirement.unit === "건" ? "1건" : "미완료";
@@ -233,7 +234,7 @@ export function buildAiPayload(studentCase: StudentCase) {
     },
     progress,
     requirements,
-    fulfilled: byStatus("충족"),
+    fulfilled: [...byStatus("충족"), ...byStatus("면제")],
     unmet: byStatus("미충족"),
     planned: byStatus("충족예정"),
     evidenceNeeded: byStatus("증빙 필요"),

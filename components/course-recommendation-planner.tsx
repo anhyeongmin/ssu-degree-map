@@ -68,7 +68,8 @@ export function CourseRecommendationPlanner({ studentCase }: { studentCase: Stud
                   <div className="candidate-title"><code>{item.course.code}</code><strong>{item.course.name}</strong><span className={`candidate-priority priority-${item.priority.replaceAll(" ", "-")}`}>{item.priority}</span></div>
                   <p>{item.reason}</p>
                   <div className="impact-tags">{item.impacts.map((impact) => <span key={impact.requirementId}>{impact.requirementName} +{impact.credits}</span>)}</div>
-                  <small>{item.course.year}학년 {item.course.semester}학기 · {item.course.classification} · {item.course.credits}학점 · {item.verification}</small>
+                  <small>{item.course.year}학년 {item.course.offeredSemesters.join("·")}학기 편성 · {item.course.classification} · {item.course.credits}학점 · {item.verification}</small>
+                  <small>교육과정 {item.course.curriculumStatus} · 대상 {item.course.eligibleRelations.join("·")} · 선수조건 {item.course.prerequisites.join("·") || "공식 자료에 별도 명시 없음"}</small>
                 </div>
               </button>;
             })}

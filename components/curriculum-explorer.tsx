@@ -99,12 +99,12 @@ export function CurriculumExplorer({ caseId }: { caseId: "A" | "B" | "C" | "D" }
             </div>
             <div className="catalog-table-wrap">
               <table className="catalog-table">
-                <thead><tr><th>학년·학기</th><th>과목코드</th><th>교과목명</th><th>구분</th><th>시간/학점</th><th>복수전공</th><th>검증</th></tr></thead>
+                <thead><tr><th>학년·학기</th><th>과목코드</th><th>교과목명</th><th>구분</th><th>시간/학점</th><th>관계·선수조건</th><th>검증</th></tr></thead>
                 <tbody>{courses.map((course, index) => (
                   <tr key={`${course.department}-${course.code}-${course.name}-${course.semester}-${index}`} className={course.verification === "공식 자료 충돌" ? "conflict-row" : ""}>
                     <td>{course.year}-{course.semester}</td><td><code>{course.code}</code></td><td><strong>{course.name}</strong>{course.note && <small>{course.note}</small>}</td>
                     <td><span className={`course-type type-${course.classification}`}>{course.classification}</span></td><td>{course.hours}/{course.credits}</td>
-                    <td>{course.doubleMajorRequired ? <span className="double-required">복필</span> : "-"}</td>
+                    <td>{course.doubleMajorRequired ? <span className="double-required">복필</span> : <small>{course.eligibleRelations.join("·")}</small>}{course.prerequisites.length ? <small>선수: {course.prerequisites.join("·")}</small> : null}</td>
                     <td>{course.verification === "공식 자료 충돌" ? <span className="verify-conflict">확인 필요</span> : <span className="verify-ok"><ShieldCheck /> 공식 확인</span>}</td>
                   </tr>
                 ))}</tbody>

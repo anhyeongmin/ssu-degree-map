@@ -24,6 +24,10 @@ export type CatalogCourse = {
   sourceId: string;
   verification?: "확인" | "공식 자료 충돌";
   note?: string;
+  curriculumStatus: "현재 교육과정" | "폐지·대체" | "확인 필요";
+  offeredSemesters: Array<1 | 2>;
+  prerequisites: string[];
+  eligibleRelations: Array<"주전공" | "복수전공" | "공통">;
 };
 
 export type CourseHistory = {
@@ -138,6 +142,9 @@ const ai = (
   hours: code === "21506741" || code === "21506798" || code === "21506867" || code === "21500304" ? 4 : credits,
   year, semester, classification, doubleMajorRequired,
   sourceId: "ai-curriculum-2025", verification: "확인", note,
+  curriculumStatus:"현재 교육과정", offeredSemesters:[semester],
+  prerequisites:note?.startsWith("선수과목:") ? [note.replace("선수과목:", "").trim()] : [],
+  eligibleRelations:doubleMajorRequired ? ["주전공","복수전공"] : ["주전공"],
 });
 
 const me = (
@@ -149,6 +156,8 @@ const me = (
   hours: credits === 1 ? 2 : code === "21505312" ? 3 : credits,
   year, semester, classification, doubleMajorRequired,
   sourceId: "me-current-curriculum", verification: "확인",
+  curriculumStatus:"현재 교육과정", offeredSemesters:[semester], prerequisites:[],
+  eligibleRelations:doubleMajorRequired ? ["주전공","복수전공"] : ["주전공"],
 });
 
 export const catalogCourses: CatalogCourse[] = [

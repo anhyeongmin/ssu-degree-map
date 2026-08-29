@@ -209,7 +209,7 @@ export function getCourseRecommendationPlan(studentCase: StudentCase): Recommend
       coverable:candidates.some((candidate) => candidate.impacts.some((candidateImpact) => candidateImpact.requirementId === item.id)),
     }));
   const unresolved = studentCase.requirements.filter((item) => {
-    if (["충족", "비적용"].includes(item.status)) return false;
+    if (["충족", "면제", "비적용"].includes(item.status)) return false;
     if (item.kind !== "credit") return true;
     return !targets.find((target) => target.requirementId === item.id)?.coverable;
   });

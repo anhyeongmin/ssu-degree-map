@@ -6,8 +6,11 @@ import {
   FileCheck2, GraduationCap, Info, School, ShieldCheck, Sparkles,
 } from "lucide-react";
 import { AiAnalysisPanel } from "@/components/ai-analysis-panel";
+import { AdminConsole } from "@/components/admin-console";
 import { CourseRecommendationPlanner } from "@/components/course-recommendation-planner";
 import { CurriculumExplorer } from "@/components/curriculum-explorer";
+import { EvidenceCenter } from "@/components/evidence-center";
+import { LifecycleDashboard } from "@/components/lifecycle-dashboard";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -21,12 +24,13 @@ const statusStyle: Record<RequirementStatus, string> = {
   "충족": "status status-ok",
   "미충족": "status status-bad",
   "충족예정": "status status-planned",
+  "면제": "status status-neutral",
   "증빙 필요": "status status-evidence",
   "학과 확인 필요": "status status-check",
   "비적용": "status status-neutral",
 };
 
-const isComplete = (status: RequirementStatus) => status === "충족" || status === "비적용";
+const isComplete = (status: RequirementStatus) => status === "충족" || status === "면제" || status === "비적용";
 
 export default function Home() {
   const [caseId, setCaseId] = useState<"A" | "B" | "C" | "D">("A");
@@ -59,7 +63,7 @@ export default function Home() {
       <div className="workspace">
         <div className="breadcrumb">학사관리 <ChevronRight /> 졸업사정 <ChevronRight /><strong>DegreeMap 분석</strong></div>
         <section className="page-heading">
-          <div><p className="eyebrow">ANONYMIZED GRADUATION AUDIT</p><h1>졸업사정 분석</h1><p>실제 u-SAINT 화면의 익명 사례를 규칙 기반으로 해석하고, AI가 다음 행동을 설명합니다.</p></div>
+          <div><p className="eyebrow">EVIDENCE-GROUNDED ACADEMIC NAVIGATOR</p><h1>전주기 졸업요건 분석</h1><p>익명 졸업사정 사례를 승인 규칙 그래프로 해석하고, 과목·증빙·행정·변경 영향을 한 화면에서 설명합니다.</p></div>
           <div className="profile-chip"><GraduationCap /><div><span>현재 선택 사례</span><strong>{studentCase.label}</strong></div></div>
         </section>
 
@@ -83,10 +87,13 @@ export default function Home() {
         <Tabs defaultValue="audit" className="degree-tabs">
           <TabsList variant="line" className="main-tabs">
             <TabsTrigger value="audit">졸업사정 결과</TabsTrigger>
+            <TabsTrigger value="lifecycle">전주기 분석</TabsTrigger>
             <TabsTrigger value="recommend">과목 추천·What-if</TabsTrigger>
             <TabsTrigger value="curriculum">교과목·변경 이력</TabsTrigger>
+            <TabsTrigger value="evidence">증빙·행정</TabsTrigger>
             <TabsTrigger value="progress">진행률 산식</TabsTrigger>
             <TabsTrigger value="rules">적용 규칙·근거</TabsTrigger>
+            <TabsTrigger value="admin">관리자 콘솔</TabsTrigger>
           </TabsList>
 
           <TabsContent value="audit" className="tab-panel">
@@ -131,12 +138,20 @@ export default function Home() {
         <AiAnalysisPanel key={studentCase.id} studentCase={studentCase} />
           </TabsContent>
 
+          <TabsContent value="lifecycle" className="tab-panel">
+            <LifecycleDashboard key={studentCase.id} studentCase={studentCase} />
+          </TabsContent>
+
           <TabsContent value="recommend" className="tab-panel">
             <CourseRecommendationPlanner key={studentCase.id} studentCase={studentCase} />
           </TabsContent>
 
           <TabsContent value="curriculum" className="tab-panel">
             <CurriculumExplorer key={studentCase.id} caseId={studentCase.id} />
+          </TabsContent>
+
+          <TabsContent value="evidence" className="tab-panel">
+            <EvidenceCenter key={studentCase.id} studentCase={studentCase} />
           </TabsContent>
 
           <TabsContent value="progress" className="tab-panel">
@@ -157,6 +172,10 @@ export default function Home() {
               <div className="rule-list">{studentCase.requirements.map((row, index) => <button key={row.id} onClick={() => setSelectedRow(row)}><span className="rule-number">R{String(index + 1).padStart(2, "0")}</span><div><strong>{row.name}</strong><p>{row.source}</p></div><span className="rule-scope">{studentCase.admissionYear} · {row.group}</span><ChevronRight /></button>)}</div>
               <div className="rule-note"><Info /><p><strong>MVP 안내</strong> 이 시연판은 제공된 네 졸업사정표의 익명 구조화 데이터입니다. 최종 졸업 판정과 최신 규정 적용은 u-SAINT 및 소속 학과 확인이 필요합니다.</p></div>
             </section>
+          </TabsContent>
+
+          <TabsContent value="admin" className="tab-panel">
+            <AdminConsole />
           </TabsContent>
         </Tabs>
       </div>
