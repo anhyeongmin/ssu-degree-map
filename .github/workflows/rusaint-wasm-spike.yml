@@ -1,0 +1,27 @@
+name: rusaint browser WASM spike
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - rusaint-worker-port
+    paths:
+      - "rusaint-wasm-spike/**"
+      - ".github/workflows/rusaint-wasm-spike.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rusaint-wasm-spike
+      - run: cargo build --release --target wasm32-unknown-unknown --manifest-path rusaint-wasm-spike/Cargo.toml
+      - run: ls -lh rusaint-wasm-spike/target/wasm32-unknown-unknown/release/*.wasm
