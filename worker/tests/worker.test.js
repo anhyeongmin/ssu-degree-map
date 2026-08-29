@@ -75,6 +75,19 @@ test("AI가 바꿔 쓴 행동과 근거를 규칙 엔진 원문으로 고정한�
   assert.equal(validateModelOutput(grounded, validInput), true);
 });
 
+test("단일 추천 사례에서 AI의 초과 우선순위와 금지 판정 표현을 안전하게 정규화한다", () => {
+  const priority = { rank:1, title:"임의 제목", reason:"신고가 먼저 필요합니다.", action:"임의 행동", basis:"임의 근거" };
+  const output = {
+    summary:"현재 졸업 가능성은 행정 신고에 달려 있습니다.", riskLevel:"보통", riskReason:"행정 요건 미완료",
+    priorities:[priority, { ...priority, rank:2, title:"추가 과목" }], warnings:[], confidenceNote:"공식 확인이 필요합니다.",
+  };
+  const grounded = groundModelOutput(output, validInput);
+  assert.equal(grounded.priorities.length, 1);
+  assert.equal(grounded.priorities[0].title, "졸업확정신고");
+  assert.equal(grounded.summary.includes("졸업 가능성"), false);
+  assert.equal(validateModelOutput(grounded, validInput), true);
+});
+
 const validRuleInput = {
   task: "rule-extraction",
   sourceId: "notice-ai-2026",
