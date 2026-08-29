@@ -248,20 +248,39 @@ function exactSourceExcerpt(sourceText, candidate) {
   return sourceText.slice(start, Math.min(sourceText.length, start + 320)).trim();
 }
 
+function boundedRuleText(value, fallback, max = 500) {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim().slice(0, max) : fallback;
+}
+
 export function groundRuleExtractionOutput(value, input) {
   if (!value || typeof value !== "object" || !Array.isArray(value.candidates)) return value;
   return {
     ...value,
     candidates:value.candidates.map((candidate) => {
-      if (candidate && typeof candidate.citedText === "string" && input.sourceText.includes(candidate.citedText)) return candidate;
-      const note = "AI 인용문이 원문과 일치하지 않아 서버가 정확한 원문 발췌로 교정했습니다. 담당자 확인이 필요합니다.";
+      const isCandidate = candidate && typeof candidate === "object";
+      const citationMatches = isCandidate && typeof candidate.citedText === "string" && input.sourceText.includes(candidate.citedText);
+      const typeMatches = isCandidate && RULE_CONDITION_TYPES.has(candidate.conditionType);
+      const hasAllFields = isCandidate && [candidate.title, candidate.appliesTo, candidate.threshold, candidate.effectiveFrom, candidate.ambiguity]
+        .every((field) => typeof field === "string" && field.trim().length > 0);
+      const needsReview = !citationMatches || !typeMatches || !hasAllFields;
+      const notes = [];
+      if (!citationMatches) notes.push("AI 인용문을 정확한 원문 발췌로 교정함");
+      if (!typeMatches) notes.push("조건유형 확인 필요");
+      if (!hasAllFields) notes.push("빈 규정 필드 확인 필요");
+      const reviewNote = notes.length ? `${notes.join(" · ")}. 담당자 확인이 필요합니다.` : "";
       return {
         ...candidate,
-        citedText:exactSourceExcerpt(input.sourceText, candidate || {}),
-        confidence:"확인 필요",
-        ambiguity:typeof candidate?.ambiguity === "string" && candidate.ambiguity !== "없음"
-          ? `${candidate.ambiguity} ${note}`.slice(0, 500)
-          : note,
+        title:boundedRuleText(candidate?.title, input.sourceTitle),
+        conditionType:typeMatches ? candidate.conditionType : "과목집합",
+        appliesTo:boundedRuleText(candidate?.appliesTo, "확인 필요"),
+        threshold:boundedRuleText(candidate?.threshold, "확인 필요"),
+        effectiveFrom:boundedRuleText(candidate?.effectiveFrom, "확인 필요"),
+        citedText:citationMatches ? candidate.citedText.slice(0, 1000) : exactSourceExcerpt(input.sourceText, candidate || {}),
+        confidence:needsReview || !["높음", "보통", "확인 필요"].includes(candidate?.confidence) ? "확인 필요" : candidate.confidence,
+        ambiguity:boundedRuleText(
+          `${boundedRuleText(candidate?.ambiguity, "확인 필요")} ${reviewNote}`,
+          "확인 필요",
+        ),
       };
     }),
   };

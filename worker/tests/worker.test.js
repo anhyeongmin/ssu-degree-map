@@ -168,3 +168,18 @@ test("AI 인용문이 원문과 다르면 정확한 원문 발췌로 교정하�
   assert.ok(grounded.candidates[0].ambiguity.includes("담당자 확인"));
   assert.equal(validateRuleExtractionOutput(grounded, validRuleInput), true);
 });
+
+test("AI 규정 후보의 빈 시행일과 잘못된 유형을 확인 필요 값으로 안전하게 보정한다", () => {
+  const output = {
+    candidates:[{
+      title:"전공필수", appliesTo:"", conditionType:"임의 유형", threshold:"전공필수 과목 이수",
+      effectiveFrom:"", citedText:"전공필수 과목을 이수", ambiguity:"", confidence:"높음",
+    }],
+  };
+  const grounded = groundRuleExtractionOutput(output, validRuleInput);
+  assert.equal(grounded.candidates[0].conditionType, "과목집합");
+  assert.equal(grounded.candidates[0].appliesTo, "확인 필요");
+  assert.equal(grounded.candidates[0].effectiveFrom, "확인 필요");
+  assert.equal(grounded.candidates[0].confidence, "확인 필요");
+  assert.equal(validateRuleExtractionOutput(grounded, validRuleInput), true);
+});
