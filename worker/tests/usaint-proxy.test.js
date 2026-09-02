@@ -74,3 +74,27 @@ test("허용되지 않은 Origin은 인증 처리 전에 차단한다", async ()
   }), { SESSION_KEY:secret });
   assert.equal(response.status, 403);
 });
+
+test("상태 확인은 암호화 비밀키 설정 여부만 공개한다", async () => {
+  const ready = await worker.fetch(request("/usaint/status", {}), { SESSION_KEY:secret });
+  assert.equal(ready.status, 200);
+  assert.deepEqual(await ready.json(), {
+    status:"ready",
+    service:"u-SAINT encrypted session proxy",
+    sessionEncryptionConfigured:true,
+    sessionTtlSeconds:3600,
+    storesCredentials:false,
+  });
+
+  const missing = await worker.fetch(request("/usaint/status", {}), {});
+  assert.equal(missing.status, 503);
+  assert.deepEqual(await missing.json(), {
+    status:"configuration-required",
+    sessionEncryptionConfigured:false,
+  });
+});
+
+test("상태 확인 요청도 추가 필드를 거부한다", async () => {
+  const response = await worker.fetch(request("/usaint/status", { revealSecret:true }), { SESSION_KEY:secret });
+  assert.equal(response.status, 400);
+});
