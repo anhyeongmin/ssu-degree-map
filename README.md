@@ -36,7 +36,11 @@
 
 ## 실제 u-SAINT 데이터 가져오기
 
-공개 GitHub Pages가 학번·비밀번호·세션을 취급하지 않도록 [rusaint](https://github.com/EATSTEAK/rusaint) CLI는 학생 PC에서만 실행합니다. 웹의 `u-SAINT 가져오기` 탭은 rusaint가 만든 JSON을 브라우저 메모리에서 읽어 익명 `내 u-SAINT` 사례를 생성합니다.
+웹의 `u-SAINT 가져오기` 탭에서 숭실 통합로그인 계정으로 직접 연결할 수 있습니다. Cloudflare Worker는 허용된 숭실 로그인·졸업사정 주소로만 요청을 중계하며, 비밀번호를 로그인 요청 직후 폐기합니다. 로그인 쿠키는 `SESSION_KEY`로 AES-GCM 암호화한 1시간짜리 토큰으로 브라우저 메모리에만 돌려줍니다. 별도 서버·데이터베이스·상시 실행 PC는 사용하지 않습니다.
+
+브라우저의 Rust/WebAssembly 어댑터는 [rusaint](https://github.com/EATSTEAK/rusaint)의 졸업사정 WebDynpro 처리 흐름과 [wdpe](https://github.com/EATSTEAK/wdpe)의 순수 파서를 사용합니다. 이름과 학번을 제외한 구조화 결과만 DegreeMap 규칙 엔진에 전달합니다.
+
+직접 연결이 일시적으로 불가능할 때는 rusaint CLI가 만든 JSON을 로컬에서 선택하는 방식도 계속 사용할 수 있습니다.
 
 ```powershell
 rusaint --format json -o graduation-student.json graduation student-info
@@ -47,7 +51,7 @@ rusaint --format json -o grades.json grades by-classification
 - `graduation-requirements.json`은 필수입니다.
 - 학생정보 JSON의 이름·학번 등 식별 필드는 사례 생성 시 제거합니다.
 - 비밀번호, 토큰, 쿠키, 세션 필드가 발견되면 파일을 거부합니다.
-- 원본 JSON은 GitHub Pages, Cloudflare Worker 또는 Workers AI로 업로드하지 않습니다.
+- 로컬 가져오기의 원본 JSON은 GitHub Pages, Cloudflare Worker 또는 Workers AI로 업로드하지 않습니다.
 - AI에는 기존과 동일하게 익명 구조화 판정 데이터만 전달합니다.
 - 가져온 성적의 과목명은 추가 이수과목 추천에서 제외합니다.
 
@@ -68,6 +72,8 @@ rusaint는 MIT 라이선스의 비공식 u-SAINT 클라이언트입니다. 원 �
 ## 판정과 AI의 경계
 
 ```text
+u-SAINT → Cloudflare Worker(암호화 세션 중계) → 브라우저 WASM(익명 구조화)
+                                               ↓
 익명 사례 데이터 → DegreeMap 규칙 엔진 → 확정된 판정·진행률
                                       ↓
 GitHub Pages → Cloudflare Worker → Workers AI 설명(JSON)
@@ -96,17 +102,23 @@ npm run build
 
 ## Worker 배포
 
-```bash
-cd worker
+```powershell
+Set-Location worker
 npm ci
-npm exec wrangler login
+npx wrangler login
+
+$bytes = New-Object byte[] 32
+$rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+$rng.GetBytes($bytes)
+[Convert]::ToBase64String($bytes) | npx wrangler secret put SESSION_KEY
+
 npm run deploy
 ```
 
-Workers AI binding 이름은 `AI`, 기본 모델은 `@cf/meta/llama-3.1-8b-instruct-fast`입니다. 토큰이나 배포 비밀값은 저장소에 커밋하지 않습니다.
+Workers AI binding 이름은 `AI`, 기본 모델은 `@cf/meta/llama-3.1-8b-instruct-fast`입니다. `SESSION_KEY`는 Cloudflare에만 저장하며 저장소에 커밋하지 않습니다. `/usaint/status`는 비밀값 자체가 아니라 암호화 설정 완료 여부만 반환합니다. 무료 할당량이 끝나면 유료 결제를 시도하거나 가짜 결과를 표시하지 않고 오류를 반환합니다.
 
 ## GitHub Pages 배포
 
-`main` 브랜치에 변경사항이 올라가면 GitHub Actions가 Next.js 정적 사이트를 빌드하고 GitHub Pages에 배포합니다. Worker 주소는 Actions 워크플로의 공개 환경변수 `NEXT_PUBLIC_AI_WORKER_URL`로 주입합니다.
+`main` 브랜치에 변경사항이 올라가면 GitHub Actions가 Rust 브라우저 어댑터를 WebAssembly로 만들고 테스트를 실행한 다음 Next.js 정적 사이트를 GitHub Pages에 배포합니다. Worker 주소는 Actions 워크플로의 공개 환경변수 `NEXT_PUBLIC_AI_WORKER_URL`로 주입합니다.
 
 > 이 MVP는 제공된 졸업사정표의 익명 구조화 사례를 설명하기 위한 시연판입니다. 최종 졸업 판정과 최신 규정 적용은 u-SAINT 및 소속 학과 확인이 필요합니다.
