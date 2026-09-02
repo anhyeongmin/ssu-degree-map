@@ -52,6 +52,51 @@ function request(path, body) {
   });
 }
 
+function mockResponse(url, body, init = {}) {
+  const response = new Response(body, init);
+  Object.defineProperty(response, "url", { value:url });
+  return response;
+}
+
+test("로그인 왕복은 sToken과 WAF를 SSO에 전달하고 비밀번호를 세션에 저장하지 않는다", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, init = {}) => {
+    const target = String(url);
+    const headers = new Headers(init.headers);
+    calls.push({ target, method:init.method, cookie:headers.get("cookie") || "", body:String(init.body || "") });
+    if (target.endsWith("/Symtra_sso/smln.asp")) {
+      return mockResponse(target, '<input value="TYPE" name="in_tp_bit"><input value="CAUSE" name="rqst_caus_cd">');
+    }
+    if (target.endsWith("/Symtra_sso/smln_pcs.asp")) {
+      return mockResponse(target, "ok", { headers:{ "set-cookie":"sToken=login-token; Path=/; Secure; HttpOnly" } });
+    }
+    if (target === "https://saint.ssu.ac.kr/irj/portal") {
+      return mockResponse(target, "portal", { headers:{ "set-cookie":"WAF=shield; Path=/; Secure" } });
+    }
+    if (target.startsWith("https://saint.ssu.ac.kr/webSSO/sso.jsp?")) {
+      assert.match(headers.get("cookie") || "", /(?:^|; )sToken=login-token(?:;|$)/u);
+      assert.match(headers.get("cookie") || "", /(?:^|; )WAF=shield(?:;|$)/u);
+      return mockResponse(target, "signed in", { headers:{ "set-cookie":"MYSAPSSO2=sap-session; Domain=.ssu.ac.kr; Path=/; Secure; HttpOnly" } });
+    }
+    throw new Error(`Unexpected upstream URL: ${target}`);
+  };
+
+  try {
+    const response = await worker.fetch(request("/usaint/login", { id:"20201234", password:"private-password" }), { SESSION_KEY:secret });
+    assert.equal(response.status, 200);
+    const output = await response.json();
+    assert.equal(typeof output.session, "string");
+    assert.equal(output.session.includes("private-password"), false);
+    const opened = await openSession(output.session, secret);
+    assert.equal(JSON.stringify(opened).includes("private-password"), false);
+    assert.equal(opened.cookies.some((cookie) => cookie.name === "MYSAPSSO2"), true);
+    assert.equal(calls.filter((call) => call.body.includes("private-password")).length, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("u-SAINT 프록시는 추가 필드와 임의 WebDynpro URL을 거부한다", async () => {
   const env = { SESSION_KEY:secret };
   const malformedLogin = await worker.fetch(request("/usaint/login", { id:"20201234", password:"secret", savePassword:true }), env);
