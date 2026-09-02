@@ -1,6 +1,7 @@
 import { parseRusaintJsonFiles, type RusaintImportResult } from "./rusaint-import.ts";
 
 export const USAINT_WORKER_URL = process.env.NEXT_PUBLIC_AI_WORKER_URL || "https://ssu-degree-map-ai.degreepath.workers.dev";
+export const RUSAINT_WASM_BUILD = "20260902-sap-numeric-v2";
 
 type ProxyResponse = { html:string; url:string; session:string };
 type ProxyRequest = { url:string; form:string };
@@ -55,10 +56,18 @@ async function workerPost<T>(path:string, body:unknown):Promise<T> {
   return output;
 }
 
+export function rusaintAssetUrls(base:string | URL) {
+  const moduleUrl = new URL("rusaint-web/degree_map_rusaint_web.js", base);
+  const binaryUrl = new URL("rusaint-web/degree_map_rusaint_web_bg.wasm", base);
+  moduleUrl.searchParams.set("v", RUSAINT_WASM_BUILD);
+  binaryUrl.searchParams.set("v", RUSAINT_WASM_BUILD);
+  return { moduleUrl:moduleUrl.href, binaryUrl:binaryUrl.href };
+}
+
 async function loadWasm():Promise<WasmModule> {
-  const moduleUrl = new URL("rusaint-web/degree_map_rusaint_web.js", document.baseURI).href;
+  const { moduleUrl, binaryUrl } = rusaintAssetUrls(document.baseURI);
   const wasmModule = await import(/* webpackIgnore: true */ moduleUrl) as WasmModule;
-  await wasmModule.default();
+  await wasmModule.default(binaryUrl);
   return wasmModule;
 }
 
