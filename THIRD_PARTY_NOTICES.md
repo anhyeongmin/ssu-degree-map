@@ -2,7 +2,7 @@
 
 ## rusaint
 
-DegreeMap의 선택적 로컬 u-SAINT JSON 가져오기 기능은 다음 오픈소스 프로젝트의 공개 출력 형식을 지원합니다.
+DegreeMap의 u-SAINT 연결 기능과 선택적 로컬 JSON 가져오기 기능은 다음 오픈소스 프로젝트의 공개 출력 형식 및 졸업사정표 파싱 구조를 사용합니다.
 
 - Project: [EATSTEAK/rusaint](https://github.com/EATSTEAK/rusaint)
 - Description: 숭실대학교 u-SAINT 비공식 Rust 클라이언트
@@ -29,4 +29,16 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-DegreeMap은 rusaint의 소스 코드를 브라우저 번들에 포함하지 않습니다. 학생 PC에서 실행된 rusaint CLI의 JSON 결과를 로컬에서 익명화·정규화하는 호환 어댑터를 제공합니다.
+DegreeMap은 rusaint 0.16.3의 졸업사정표 데이터 모델과 WebDynpro 이벤트 흐름을 브라우저 전용 Rust/WebAssembly 어댑터로 수정해 포함합니다. 네이티브 HTTP·쿠키·파일 세션 계층은 포함하지 않으며, 직접 식별자인 성명과 학번은 WebAssembly 출력 구조에서 제거했습니다. 원본 rusaint CLI JSON을 로컬에서 익명화·정규화하는 호환 방식도 함께 제공합니다.
+
+## wdpe
+
+브라우저 전용 어댑터는 rusaint가 사용하는 WebDynpro Parse Engine을 사용합니다.
+
+- Project: [EATSTEAK/wdpe](https://github.com/EATSTEAK/wdpe)
+- License: MIT
+- Version: 0.4.3
+
+Copyright (c) 2023-2025 Koo Hyomin
+
+위 rusaint 절에 기재된 MIT 허가문과 보증 부인 조건이 동일하게 적용됩니다.
