@@ -143,3 +143,36 @@ test("상태 확인 요청도 추가 필드를 거부한다", async () => {
   const response = await worker.fetch(request("/usaint/status", { revealSecret:true }), { SESSION_KEY:secret });
   assert.equal(response.status, 400);
 });
+
+test("졸업사정 시작은 wdpe와 동일하게 SAP stable ID를 요청한다", async () => {
+  const originalFetch = globalThis.fetch;
+  let requestedUrl = "";
+  globalThis.fetch = async (url) => {
+    requestedUrl = String(url);
+    return mockResponse(requestedUrl, '<html>sap.client.SsrClient<div id="_loadingPlaceholder_"></div><div id="WD01"></div></html>');
+  };
+  try {
+    const session = await sealSession({ cookies:[] }, secret);
+    const response = await worker.fetch(request("/usaint/graduation/start", { session }), { SESSION_KEY:secret });
+    assert.equal(response.status, 200);
+    assert.equal(new URL(requestedUrl).searchParams.get("sap-wd-stableids"), "X");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("졸업사정 대신 로그인 HTML이 오면 WASM으로 넘기지 않는다", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => mockResponse(String(url), "<html>통합로그인</html>");
+  try {
+    const session = await sealSession({ cookies:[] }, secret);
+    const response = await worker.fetch(request("/usaint/graduation/start", { session }), { SESSION_KEY:secret });
+    assert.equal(response.status, 502);
+    assert.deepEqual(await response.json(), {
+      error:"u-SAINT가 졸업사정 화면 대신 로그인 또는 안내 화면을 반환했습니다. 잠시 후 다시 로그인해 주세요.",
+      code:"USAINT_GRADUATION_PAGE_INVALID",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
