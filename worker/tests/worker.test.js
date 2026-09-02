@@ -118,6 +118,30 @@ test("여러 추천 행동은 모델 제목과 무관하게 규칙 엔진 순서
   assert.equal(validateModelOutput(grounded, context), true);
 });
 
+test("2학년 충족예정 요건을 AI가 미충족으로 바꾸면 규칙 엔진 요약으로 교정한다", () => {
+  const plannedRequirement = {
+    id:"c-credit", group:"졸업필수", label:"총 졸업학점", status:"충족예정", required:"133학점", earned:"60.5학점",
+    shortage:"72.5학점", action:"남은 학기별로 72.5학점을 계획하세요.", basis:"학부 졸업학점 133",
+  };
+  const context = {
+    ...validInput,
+    caseId:"C", department:"AI소프트웨어학부", yearLabel:"2학년", majorType:"주전공",
+    creditSummary:{ required:133, earned:60.5, shortage:72.5 },
+    requirements:[plannedRequirement], fulfilled:[], unmet:[], planned:["총 졸업학점"],
+    recommendedActions:[plannedRequirement.action], ruleSources:[plannedRequirement.basis],
+  };
+  const output = {
+    summary:"2학년이며 총 졸업학점이 미충족 상태입니다.", riskLevel:"보통", riskReason:"장기 이수계획이 필요합니다.",
+    priorities:[{ rank:1, title:"총 졸업학점", reason:"학점을 계획해야 합니다.", action:"임의 행동", basis:"임의 근거" }],
+    warnings:[], confidenceNote:"u-SAINT와 소속 학과의 공식 확인이 필요합니다.",
+  };
+  const grounded = groundModelOutput(output, context);
+  assert.equal(grounded.summary.includes("미충족"), false);
+  assert.ok(grounded.summary.includes("충족예정 총 졸업학점"));
+  assert.ok(grounded.summary.includes("60.5/133학점"));
+  assert.equal(validateModelOutput(grounded, context), true);
+});
+
 const validRuleInput = {
   task: "rule-extraction",
   sourceId: "notice-ai-2026",
