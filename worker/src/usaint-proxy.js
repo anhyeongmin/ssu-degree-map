@@ -2,7 +2,10 @@ const SMARTID_LOGIN_URL = "https://smartid.ssu.ac.kr/Symtra_sso/smln.asp";
 const SMARTID_LOGIN_POST_URL = "https://smartid.ssu.ac.kr/Symtra_sso/smln_pcs.asp";
 const USAINT_PORTAL_URL = "https://saint.ssu.ac.kr/irj/portal";
 const USAINT_SSO_URL = "https://saint.ssu.ac.kr/webSSO/sso.jsp";
-const GRADUATION_APP_URL = "https://ecc.ssu.ac.kr/sap/bc/webdynpro/SAP/ZCMW8015";
+// rusaint/wdpe relies on SAP's stable element IDs. Without this query the
+// initial page can use dynamic IDs and the browser WASM parser cannot find
+// WD01, the loading placeholder, or the graduation fields.
+const GRADUATION_APP_URL = "https://ecc.ssu.ac.kr/sap/bc/webdynpro/SAP/ZCMW8015?sap-wd-stableids=X";
 const SESSION_TTL_MS = 60 * 60 * 1000;
 const MAX_LOGIN_BODY_BYTES = 8 * 1024;
 const MAX_EVENT_BODY_BYTES = 128 * 1024;
@@ -162,6 +165,13 @@ function allowedGraduationUrl(value) {
   }
 }
 
+function looksLikeGraduationWebDynpro(html) {
+  return typeof html === "string"
+    && html.includes("sap.client.SsrClient")
+    && html.includes("_loadingPlaceholder_")
+    && html.includes("WD01");
+}
+
 function json(body, status, origin) {
   return Response.json(body, {
     status,
@@ -255,6 +265,12 @@ async function graduationStart(request, env, origin) {
   const response = await upstreamFetch(GRADUATION_APP_URL, { method:"GET" }, session.cookies);
   if (!response.ok) return json({ error:"u-SAINT 졸업사정표를 불러오지 못했습니다." }, 502, origin);
   const html = await response.text();
+  if (!looksLikeGraduationWebDynpro(html)) {
+    return json({
+      error:"u-SAINT가 졸업사정 화면 대신 로그인 또는 안내 화면을 반환했습니다. 잠시 후 다시 로그인해 주세요.",
+      code:"USAINT_GRADUATION_PAGE_INVALID",
+    }, 502, origin);
+  }
   const refreshedSession = await sealSession({ cookies:session.cookies }, env.SESSION_KEY);
   return json({ html, url:response.url, session:refreshedSession }, 200, origin);
 }
