@@ -63,12 +63,15 @@ export async function importLiveUSaint(id:string, password:string):Promise<Rusai
     const details = await runEvent(session, await client.details_request());
     client.apply_update(details.html);
     const requirements = JSON.parse(client.requirements_json()) as RequirementsOutput;
-    return parseRusaintJsonFiles([
+    const result = parseRusaintJsonFiles([
       { name:"anonymous-graduation-student.json", text:JSON.stringify(student) },
       { name:"anonymous-graduation-requirements.json", text:JSON.stringify(requirements) },
     ]);
+    result.studentCase.label = "내 u-SAINT · 직접 연결";
+    result.studentCase.shortLabel = "내 u-SAINT";
+    result.studentCase.dataNote = "현재 u-SAINT 졸업사정표를 브라우저에서 익명화·구조화한 결과입니다.";
+    return result;
   } finally {
     client.free?.();
   }
 }
-
