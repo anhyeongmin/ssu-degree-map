@@ -40,9 +40,9 @@ async function workerPost<T>(path:string, body:unknown):Promise<T> {
 
 async function loadWasm():Promise<WasmModule> {
   const moduleUrl = new URL("rusaint-web/degree_map_rusaint_web.js", document.baseURI).href;
-  const module = await import(/* webpackIgnore: true */ moduleUrl) as WasmModule;
-  await module.default();
-  return module;
+  const wasmModule = await import(/* webpackIgnore: true */ moduleUrl) as WasmModule;
+  await wasmModule.default();
+  return wasmModule;
 }
 
 async function runEvent(session:string, requestJson:string) {
