@@ -140,9 +140,11 @@ async function upstreamFetch(url, init, jar, fetchImpl = fetch) {
 }
 
 function hiddenInput(html, name) {
-  const escaped = name.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-  const input = html.match(new RegExp(`<input\\b[^>]*\\bname=["']${escaped}["'][^>]*>`, "iu"))?.[0];
-  return input?.match(/\bvalue=["']([^"']*)["']/iu)?.[1] || "";
+  for (const input of html.match(/<input\b[^>]*>/giu) || []) {
+    const inputName = input.match(/\bname\s*=\s*["']([^"']*)["']/iu)?.[1];
+    if (inputName === name) return input.match(/\bvalue\s*=\s*["']([^"']*)["']/iu)?.[1] || "";
+  }
+  return "";
 }
 
 function loginErrorMessage(html) {
@@ -225,6 +227,12 @@ async function login(request, env, origin) {
   }, cookies);
   const tokenCookie = cookies.find((cookie) => cookie.name === "sToken" && cookie.value);
   if (!tokenCookie) return json({ error:loginErrorMessage(await loginResponse.text()) }, 401, origin);
+
+  // rusaint sends sToken as both a query value and a parent-domain cookie to
+  // the u-SAINT SSO endpoint. SmartID commonly issues it as a host-only cookie.
+  const sharedTokenIndex = cookies.findIndex((cookie) => cookie.name === "sToken" && cookie.domain === "ssu.ac.kr" && cookie.path === "/");
+  if (sharedTokenIndex >= 0) cookies.splice(sharedTokenIndex, 1);
+  cookies.push({ name:"sToken", value:tokenCookie.value, domain:"ssu.ac.kr", path:"/", secure:true, hostOnly:false });
 
   await upstreamFetch(USAINT_PORTAL_URL, { method:"GET" }, cookies);
   const ssoUrl = new URL(USAINT_SSO_URL);
