@@ -1,23 +1,26 @@
-name: rusaint browser WASM
+name: Direct u-SAINT integration CI
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - rusaint-worker-port
+    branches: [rusaint-worker-port]
     paths:
       - "rusaint-wasm-spike/**"
-      - ".github/workflows/rusaint-wasm-spike.yml"
-  pull_request:
-    paths:
-      - "rusaint-wasm-spike/**"
+      - "worker/**"
+      - "lib/usaint-live.ts"
+      - "lib/rusaint-import.ts"
+      - "components/usaint-importer.tsx"
+      - "app/globals.css"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/deploy-pages.yml"
       - ".github/workflows/rusaint-wasm-spike.yml"
 
 permissions:
   contents: read
 
 jobs:
-  compile:
+  integration:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,22 +30,15 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: rusaint-wasm-spike
-      - name: Compile browser adapter
-        run: cargo build --release --target wasm32-unknown-unknown --manifest-path rusaint-wasm-spike/Cargo.toml
-      - name: Install wasm-pack
-        run: cargo install wasm-pack --locked
-      - name: Generate browser module
-        run: wasm-pack build rusaint-wasm-spike --target web --release --out-dir ../public/rusaint-web --out-name degree_map_rusaint_web
-      - name: Verify generated module
-        run: ls -lh public/rusaint-web/degree_map_rusaint_web.js public/rusaint-web/degree_map_rusaint_web_bg.wasm
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+      - run: cargo install wasm-pack --locked
+      - run: cargo tree --target wasm32-unknown-unknown -e features -i tokio --manifest-path rusaint-wasm-spike/Cargo.toml
+      - run: wasm-pack build rusaint-wasm-spike --target web --release --out-dir ../public/rusaint-web --out-name degree_map_rusaint_web
       - run: npm ci
       - run: npm test
-      - name: Build GitHub Pages bundle
-        run: npm run build
+      - run: npm run build
         env:
-          GITHUB_ACTIONS: "true"
           NEXT_PUBLIC_AI_WORKER_URL: https://ssu-degree-map-ai.degreepath.workers.dev
