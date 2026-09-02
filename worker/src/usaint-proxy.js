@@ -181,6 +181,25 @@ async function readJson(request, maxBytes) {
   return JSON.parse(text);
 }
 
+async function status(request, env, origin) {
+  const body = await readJson(request, 1024);
+  if (!body || typeof body !== "object" || Array.isArray(body) || Object.keys(body).length > 0) {
+    return json({ error:"상태 확인 요청 형식이 올바르지 않습니다." }, 400, origin);
+  }
+  try {
+    await sessionKey(env.SESSION_KEY);
+  } catch {
+    return json({ status:"configuration-required", sessionEncryptionConfigured:false }, 503, origin);
+  }
+  return json({
+    status:"ready",
+    service:"u-SAINT encrypted session proxy",
+    sessionEncryptionConfigured:true,
+    sessionTtlSeconds:SESSION_TTL_MS / 1000,
+    storesCredentials:false,
+  }, 200, origin);
+}
+
 async function login(request, env, origin) {
   const body = await readJson(request, MAX_LOGIN_BODY_BYTES);
   if (!body || typeof body !== "object" || Array.isArray(body) || Object.keys(body).some((key) => !["id", "password"].includes(key))) {
@@ -259,6 +278,7 @@ async function graduationEvent(request, env, origin) {
 export async function handleUSaintRequest(request, env, origin) {
   try {
     const path = new URL(request.url).pathname;
+    if (path === "/usaint/status") return status(request, env, origin);
     if (path === "/usaint/login") return login(request, env, origin);
     if (path === "/usaint/graduation/start") return graduationStart(request, env, origin);
     if (path === "/usaint/graduation/event") return graduationEvent(request, env, origin);
@@ -266,7 +286,10 @@ export async function handleUSaintRequest(request, env, origin) {
   } catch (error) {
     if (error instanceof SyntaxError) return json({ error:"JSON 요청만 허용됩니다." }, 400, origin);
     if (error instanceof Error && error.message === "BODY_TOO_LARGE") return json({ error:"요청 본문이 너무 큽니다." }, 413, origin);
-    if (error instanceof Error && /session token|decrypt|SESSION_KEY/iu.test(error.message)) {
+    if (error instanceof Error && /SESSION_KEY/iu.test(error.message)) {
+      return json({ error:"u-SAINT 연결 서버의 암호화 설정이 완료되지 않았습니다." }, 503, origin);
+    }
+    if (error instanceof Error && /session token|decrypt/iu.test(error.message)) {
       return json({ error:"로그인 세션이 만료되었거나 올바르지 않습니다. 다시 로그인해 주세요." }, 401, origin);
     }
     return json({ error:"u-SAINT 연결에 실패했습니다. 잠시 후 다시 시도해 주세요." }, 502, origin);
