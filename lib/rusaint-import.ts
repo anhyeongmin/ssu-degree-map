@@ -63,7 +63,9 @@ function asString(value: unknown) {
 function asNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string" && value.trim()) {
-    const parsed = Number(value.replaceAll(",", "").replace(/[^0-9.-]/g, ""));
+    const normalized = value.replaceAll(",", "").replace(/[^0-9.-]/g, "");
+    if (!/[0-9]/.test(normalized)) return null;
+    const parsed = Number(normalized);
     if (Number.isFinite(parsed)) return parsed;
   }
   return null;

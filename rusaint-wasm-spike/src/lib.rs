@@ -96,10 +96,36 @@ fn optional_u32<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<u32
     if value.trim().is_empty() { return Ok(None); }
     value.trim().parse().map(Some).map_err(serde::de::Error::custom)
 }
+fn parse_optional_sap_f32(value: &str) -> Option<f32> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() { return None; }
+
+    // SAP tables can render thousands separators and negative values as
+    // `1,234.5` or `17.0-`. Non-credit rows can also contain labels such as
+    // `이수` instead of a number; those must remain unknown rather than
+    // aborting the entire graduation audit or being coerced to zero.
+    let trailing_minus = trimmed.ends_with('-');
+    let parenthesized = trimmed.starts_with('(') && trimmed.ends_with(')');
+    let core = if trailing_minus {
+        &trimmed[..trimmed.len() - 1]
+    } else if parenthesized {
+        &trimmed[1..trimmed.len() - 1]
+    } else {
+        trimmed
+    };
+    let normalized = core.chars().filter_map(|character| match character {
+        ',' => None,
+        '\u{2212}' => Some('-'),
+        character if character.is_whitespace() => None,
+        character => Some(character),
+    }).collect::<String>();
+    normalized.parse::<f32>().ok().map(|number| {
+        if trailing_minus || parenthesized { -number.abs() } else { number }
+    })
+}
 fn optional_f32<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<f32>, D::Error> {
     let value = String::deserialize(deserializer)?;
-    if value.trim().is_empty() { return Ok(None); }
-    value.trim().parse().map(Some).map_err(serde::de::Error::custom)
+    Ok(parse_optional_sap_f32(&value))
 }
 fn sufficiency<'de, D: Deserializer<'de>>(deserializer: D) -> Result<bool, D::Error> {
     Ok(String::deserialize(deserializer)?.trim() == "충족")
@@ -231,4 +257,19 @@ impl BrowserGraduationClient {
 #[wasm_bindgen]
 pub fn rusaint_parser_stack_probe() -> bool {
     std::mem::size_of::<wdpe::body::Body>() > 0 && std::mem::size_of::<ozra::types::DataSet>() > 0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_optional_sap_f32;
+
+    #[test]
+    fn parses_sap_numeric_formats_without_coercing_labels() {
+        assert_eq!(parse_optional_sap_f32("1,234.5"), Some(1234.5));
+        assert_eq!(parse_optional_sap_f32("17.0-"), Some(-17.0));
+        assert_eq!(parse_optional_sap_f32("(3.0)"), Some(-3.0));
+        assert_eq!(parse_optional_sap_f32("이수"), None);
+        assert_eq!(parse_optional_sap_f32("-"), None);
+        assert_eq!(parse_optional_sap_f32("  "), None);
+    }
 }
