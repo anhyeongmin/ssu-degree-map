@@ -28,8 +28,20 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rusaint-wasm-spike
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --locked
+      - name: Build rusaint browser adapter
+        run: wasm-pack build rusaint-wasm-spike --target web --release --out-dir ../public/rusaint-web --out-name degree_map_rusaint_web
       - name: Install dependencies
         run: npm ci
+      - name: Test
+        run: npm test
       - name: Build static site
         run: npm run build
         env:
