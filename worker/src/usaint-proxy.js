@@ -7,6 +7,7 @@ const SESSION_TTL_MS = 60 * 60 * 1000;
 const MAX_LOGIN_BODY_BYTES = 8 * 1024;
 const MAX_EVENT_BODY_BYTES = 128 * 1024;
 const MAX_REDIRECTS = 8;
+const BROWSER_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -118,6 +119,10 @@ async function upstreamFetch(url, init, jar, fetchImpl = fetch) {
   let body = init.body;
   for (let redirect = 0; redirect <= MAX_REDIRECTS; redirect += 1) {
     const headers = new Headers(init.headers || {});
+    if (!headers.has("accept")) headers.set("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+    if (!headers.has("accept-language")) headers.set("accept-language", "ko,en;q=0.9,en-US;q=0.8");
+    if (!headers.has("cache-control")) headers.set("cache-control", "max-age=0");
+    if (!headers.has("user-agent")) headers.set("user-agent", BROWSER_USER_AGENT);
     const cookies = cookieHeader(jar, currentUrl);
     if (cookies) headers.set("cookie", cookies);
     const response = await fetchImpl(currentUrl, { ...init, method, body, headers, redirect:"manual" });
@@ -178,6 +183,9 @@ async function readJson(request, maxBytes) {
 
 async function login(request, env, origin) {
   const body = await readJson(request, MAX_LOGIN_BODY_BYTES);
+  if (!body || typeof body !== "object" || Array.isArray(body) || Object.keys(body).some((key) => !["id", "password"].includes(key))) {
+    return json({ error:"로그인 요청 형식이 올바르지 않습니다." }, 400, origin);
+  }
   const id = typeof body.id === "string" ? body.id.trim() : "";
   const password = typeof body.password === "string" ? body.password : "";
   if (!/^\d{5,12}$/u.test(id) || password.length < 1 || password.length > 200) {
@@ -213,6 +221,9 @@ async function login(request, env, origin) {
 
 async function graduationStart(request, env, origin) {
   const body = await readJson(request, MAX_LOGIN_BODY_BYTES);
+  if (!body || typeof body !== "object" || Array.isArray(body) || Object.keys(body).some((key) => key !== "session")) {
+    return json({ error:"졸업사정 시작 요청 형식이 올바르지 않습니다." }, 400, origin);
+  }
   const session = await openSession(body.session, env.SESSION_KEY);
   const response = await upstreamFetch(GRADUATION_APP_URL, { method:"GET" }, session.cookies);
   if (!response.ok) return json({ error:"u-SAINT 졸업사정표를 불러오지 못했습니다." }, 502, origin);
@@ -223,13 +234,20 @@ async function graduationStart(request, env, origin) {
 
 async function graduationEvent(request, env, origin) {
   const body = await readJson(request, MAX_EVENT_BODY_BYTES);
+  if (!body || typeof body !== "object" || Array.isArray(body) || Object.keys(body).some((key) => !["session", "url", "form"].includes(key))) {
+    return json({ error:"졸업사정 이벤트 요청 형식이 올바르지 않습니다." }, 400, origin);
+  }
   if (!allowedGraduationUrl(body.url) || typeof body.form !== "string" || body.form.length > 96 * 1024) {
     return json({ error:"허용되지 않은 졸업사정 요청입니다." }, 400, origin);
   }
   const session = await openSession(body.session, env.SESSION_KEY);
   const response = await upstreamFetch(body.url, {
     method:"POST",
-    headers:{ "content-type":"application/x-www-form-urlencoded; charset=UTF-8" },
+    headers:{
+      "accept":"*/*",
+      "content-type":"application/x-www-form-urlencoded; charset=UTF-8",
+      "x-requested-with":"XMLHttpRequest",
+    },
     body:body.form,
   }, session.cookies);
   if (!response.ok) return json({ error:"u-SAINT 졸업사정 이벤트 처리에 실패했습니다." }, 502, origin);
