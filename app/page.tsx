@@ -9,6 +9,7 @@ import { AiAnalysisPanel } from "@/components/ai-analysis-panel";
 import { AdminConsole } from "@/components/admin-console";
 import { CourseRecommendationPlanner } from "@/components/course-recommendation-planner";
 import { CurriculumExplorer } from "@/components/curriculum-explorer";
+import { EntryGateway } from "@/components/entry-gateway";
 import { EvidenceCenter } from "@/components/evidence-center";
 import { LifecycleDashboard } from "@/components/lifecycle-dashboard";
 import { USaintImporter } from "@/components/usaint-importer";
@@ -17,9 +18,10 @@ import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  calculateProgress, shortageLabel, studentCases, valueLabel,
+  calculateProgress, shortageLabel, valueLabel,
   type Requirement, type RequirementStatus, type StudentCase,
 } from "@/lib/degree-map";
+import { visibleStudentCases, type DegreeMapMode } from "@/lib/app-mode";
 
 const statusStyle: Record<RequirementStatus, string> = {
   "충족": "status status-ok",
@@ -34,12 +36,35 @@ const statusStyle: Record<RequirementStatus, string> = {
 const isComplete = (status: RequirementStatus) => status === "충족" || status === "면제" || status === "비적용";
 
 export default function Home() {
+  const [mode, setMode] = useState<DegreeMapMode>("entry");
   const [caseId, setCaseId] = useState<StudentCase["id"]>("A");
   const [importedCase, setImportedCase] = useState<StudentCase | null>(null);
   const [selectedRow, setSelectedRow] = useState<Requirement | null>(null);
-  const visibleCases = useMemo(() => importedCase ? [...studentCases, importedCase] : studentCases, [importedCase]);
+  const visibleCases = useMemo(() => visibleStudentCases(mode, importedCase), [mode, importedCase]);
   const studentCase = useMemo(() => visibleCases.find((item) => item.id === caseId) ?? visibleCases[0], [caseId, visibleCases]);
-  const progress = useMemo(() => calculateProgress(studentCase), [studentCase]);
+
+  function openDemo() {
+    setMode("demo");
+    setCaseId("A");
+    setSelectedRow(null);
+  }
+
+  function openLive(nextCase: StudentCase) {
+    setImportedCase(nextCase);
+    setCaseId("I");
+    setMode("live");
+    setSelectedRow(null);
+  }
+
+  if (mode === "entry") {
+    return <EntryGateway onDemo={openDemo} onAuthenticated={(nextCase) => openLive(nextCase)} />;
+  }
+
+  if (!studentCase) {
+    return <EntryGateway onDemo={openDemo} onAuthenticated={(nextCase) => openLive(nextCase)} />;
+  }
+
+  const progress = calculateProgress(studentCase);
   const actions = studentCase.requirements.filter((item) => !isComplete(item.status));
   const unmet = studentCase.requirements.filter((item) => item.status === "미충족");
   const confirmation = studentCase.requirements.filter((item) => item.status === "학과 확인 필요" || item.status === "증빙 필요");
@@ -59,26 +84,38 @@ export default function Home() {
       <header className="topbar">
         <div className="topbar-inner">
           <div className="brand" aria-label="SSU DegreeMap"><div className="brand-mark">SSU</div><div><strong>DegreeMap</strong><span>학사요건 분석 시스템</span></div></div>
-          <div className="top-meta"><span>사례 2026.08.28 · 공식자료 2026.08.29</span><span className="divider" /><span>익명 졸업사정 사례</span></div>
+          <div className="top-meta dashboard-mode-actions">
+            <span>{mode === "live" ? "내 u-SAINT 연결 결과" : "익명 데모 데이터"}</span>
+            <span className="divider" />
+            {mode === "live" && <button type="button" onClick={openDemo}>데모 보기</button>}
+            <button type="button" onClick={() => setMode("entry")}>{mode === "live" ? "연결 종료" : "로그인 화면"}</button>
+          </div>
         </div>
       </header>
 
       <div className="workspace">
         <div className="breadcrumb">학사관리 <ChevronRight /> 졸업사정 <ChevronRight /><strong>DegreeMap 분석</strong></div>
         <section className="page-heading">
-          <div><p className="eyebrow">EVIDENCE-GROUNDED ACADEMIC NAVIGATOR</p><h1>전주기 졸업요건 분석</h1><p>익명 졸업사정 사례를 승인 규칙 그래프로 해석하고, 과목·증빙·행정·변경 영향을 한 화면에서 설명합니다.</p></div>
-          <div className="profile-chip"><GraduationCap /><div><span>현재 선택 사례</span><strong>{studentCase.label}</strong></div></div>
+          <div><p className="eyebrow">EVIDENCE-GROUNDED ACADEMIC NAVIGATOR</p><h1>{mode === "live" ? "내 졸업요건 분석" : "전주기 졸업요건 분석"}</h1><p>{mode === "live" ? "u-SAINT에서 가져온 졸업사정표를 익명화해 부족요건과 다음 행동을 설명합니다." : "익명 졸업사정 사례를 승인 규칙 그래프로 해석하고, 과목·증빙·행정·변경 영향을 한 화면에서 설명합니다."}</p></div>
+          <div className="profile-chip"><GraduationCap /><div><span>{mode === "live" ? "현재 연결 정보" : "현재 선택 사례"}</span><strong>{studentCase.label}</strong></div></div>
         </section>
 
-        <section className="case-switcher" aria-label="익명 학생 사례 선택">
-          {visibleCases.map((item) => (
-            <button key={item.id} onClick={() => changeCase(item.id)} className={item.id === caseId ? "active" : ""} aria-pressed={item.id === caseId}>
-              <span className="case-letter">{item.id}</span>
-              <div><strong>{item.shortLabel}</strong><p>{item.department} · {item.yearLabel}</p><small>{item.totalEarned}/{item.totalRequired}학점 · {item.majorType}</small></div>
-              {item.id === caseId && <CheckCircle2 aria-hidden="true" />}
-            </button>
-          ))}
-        </section>
+        {mode === "demo" ? (
+          <>
+            <div className="demo-mode-banner"><ShieldCheck /><div><strong>익명 데모 모드</strong><span>실제 개인정보가 아닌 네 개의 익명 졸업사정 사례입니다.</span></div><button type="button" onClick={() => setMode("entry")}>내 정보로 로그인 <ArrowRight /></button></div>
+            <section className="case-switcher" aria-label="익명 학생 사례 선택">
+              {visibleCases.map((item) => (
+                <button key={item.id} onClick={() => changeCase(item.id)} className={item.id === caseId ? "active" : ""} aria-pressed={item.id === caseId}>
+                  <span className="case-letter">{item.id}</span>
+                  <div><strong>{item.shortLabel}</strong><p>{item.department} · {item.yearLabel}</p><small>{item.totalEarned}/{item.totalRequired}학점 · {item.majorType}</small></div>
+                  {item.id === caseId && <CheckCircle2 aria-hidden="true" />}
+                </button>
+              ))}
+            </section>
+          </>
+        ) : (
+          <div className="live-mode-banner"><CheckCircle2 /><div><strong>u-SAINT 연결 완료</strong><span>이름과 학번을 제거한 현재 졸업사정 결과입니다.</span></div><button type="button" onClick={() => setMode("entry")}>연결 종료</button></div>
+        )}
 
         <section className="case-context panel">
           <div><School /><span>학과·학년</span><strong>{studentCase.department} · {studentCase.yearLabel}</strong></div>
@@ -183,7 +220,7 @@ export default function Home() {
           </TabsContent>
 
           <TabsContent value="import" className="tab-panel">
-            <USaintImporter onImported={(nextCase) => { setImportedCase(nextCase); setCaseId("I"); setSelectedRow(null); }} />
+            <USaintImporter onImported={(nextCase) => openLive(nextCase)} />
           </TabsContent>
         </Tabs>
       </div>
