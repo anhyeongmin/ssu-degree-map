@@ -35,3 +35,14 @@ jobs:
         run: wasm-pack build rusaint-wasm-spike --target web --release --out-dir ../public/rusaint-web --out-name degree_map_rusaint_web
       - name: Verify generated module
         run: ls -lh public/rusaint-web/degree_map_rusaint_web.js public/rusaint-web/degree_map_rusaint_web_bg.wasm
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Build GitHub Pages bundle
+        run: npm run build
+        env:
+          GITHUB_ACTIONS: "true"
+          NEXT_PUBLIC_AI_WORKER_URL: https://ssu-degree-map-ai.degreepath.workers.dev
