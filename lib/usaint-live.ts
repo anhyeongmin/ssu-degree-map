@@ -29,6 +29,9 @@ async function workerPost<T>(path:string, body:unknown):Promise<T> {
     method:"POST",
     headers:{ "content-type":"application/json" },
     body:JSON.stringify(body),
+    cache:"no-store",
+    credentials:"omit",
+    referrerPolicy:"no-referrer",
   });
   const output = await response.json().catch(() => ({})) as { error?:string } & T;
   if (!response.ok) throw new Error(output.error || "u-SAINT 연결 요청에 실패했습니다.");
