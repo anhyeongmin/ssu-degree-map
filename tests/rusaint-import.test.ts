@@ -24,6 +24,7 @@ const requirements = {
     total:{ name:"총 졸업학점", requirement:133, calculation:116, difference:-17, result:false, category:"", lectures:[] },
     major:{ name:"복수전공 기계공학", requirement:42, calculation:20, difference:-22, result:false, category:"복수전공", lectures:["고체역학"] },
     chapel:{ name:"채플", requirement:null, calculation:null, difference:null, result:true, category:"채플", lectures:["비전채플"] },
+    thesis:{ name:"졸업논문", requirement:null, calculation:"이수", difference:"-", result:true, category:"졸업요건", lectures:[] },
   },
 };
 
@@ -49,7 +50,9 @@ test("rusaint 졸업요건·학생정보·성적을 익명 로컬 사례로 변�
   assert.equal(result.studentCase.totalEarned, 116);
   assert.equal(result.studentCase.uSaintStatus, "불가능");
   assert.match(result.studentCase.majorType, /기계공학/);
-  assert.equal(result.studentCase.requirements.length, 3);
+  assert.equal(result.studentCase.requirements.length, 4);
+  assert.equal(result.studentCase.requirements.find((item) => item.name === "졸업논문")?.earned, null);
+  assert.equal(result.studentCase.requirements.find((item) => item.name === "졸업논문")?.status, "충족");
   assert.equal(result.studentCase.completedCourses?.[0].code, "21500001");
   assert.equal(calculateProgress(result.studentCase).creditPercent, 87.2);
   assert.equal(buildAiPayload(result.studentCase).caseId, "B");
