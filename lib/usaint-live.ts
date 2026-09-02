@@ -1,4 +1,4 @@
-import { parseRusaintJsonFiles, type RusaintImportResult } from "./rusaint-import";
+import { parseRusaintJsonFiles, type RusaintImportResult } from "./rusaint-import.ts";
 
 export const USAINT_WORKER_URL = process.env.NEXT_PUBLIC_AI_WORKER_URL || "https://ssu-degree-map-ai.degreepath.workers.dev";
 
@@ -23,6 +23,23 @@ type WasmModule = {
   default(input?:RequestInfo | URL | Response | BufferSource | WebAssembly.Module):Promise<unknown>;
   BrowserGraduationClient:new (html:string) => WasmClient;
 };
+
+export function connectionErrorMessage(error:unknown) {
+  if (error instanceof Error && error.message.trim()) return error.message.trim();
+  if (typeof error === "string" && error.trim()) return error.trim();
+  if (error && typeof error === "object" && "message" in error && typeof error.message === "string" && error.message.trim()) {
+    return error.message.trim();
+  }
+  return "원인을 해석하지 못한 오류";
+}
+
+async function atStage<T>(stage:string, action:() => Promise<T> | T):Promise<T> {
+  try {
+    return await action();
+  } catch (error) {
+    throw new Error(`${stage} 단계에서 실패했습니다: ${connectionErrorMessage(error)}`);
+  }
+}
 
 async function workerPost<T>(path:string, body:unknown):Promise<T> {
   const response = await fetch(`${USAINT_WORKER_URL}${path}`, {
@@ -52,24 +69,26 @@ async function runEvent(session:string, requestJson:string) {
 }
 
 export async function importLiveUSaint(id:string, password:string):Promise<RusaintImportResult> {
-  const login = await workerPost<{ session:string }>("/usaint/login", { id, password });
+  const login = await atStage("통합로그인", () => workerPost<{ session:string }>("/usaint/login", { id, password }));
   let session = login.session;
-  const initial = await workerPost<ProxyResponse>("/usaint/graduation/start", { session });
+  const initial = await atStage("졸업사정 화면 열기", () => workerPost<ProxyResponse>("/usaint/graduation/start", { session }));
   session = initial.session;
-  const wasm = await loadWasm();
-  const client = new wasm.BrowserGraduationClient(initial.html);
+  const wasm = await atStage("rusaint WebAssembly 불러오기", loadWasm);
+  const client = await atStage("졸업사정 화면 해석", () => new wasm.BrowserGraduationClient(initial.html));
   try {
-    const initialized = await runEvent(session, await client.initialization_request());
+    const initializationRequest = await atStage("WebDynpro 초기화 요청 생성", () => client.initialization_request());
+    const initialized = await atStage("WebDynpro 초기화", () => runEvent(session, initializationRequest));
     session = initialized.session;
-    client.apply_update(initialized.html);
-    const student = JSON.parse(client.anonymous_student_json()) as AnonymousStudent;
-    const details = await runEvent(session, await client.details_request());
-    client.apply_update(details.html);
-    const requirements = JSON.parse(client.requirements_json()) as RequirementsOutput;
-    const result = parseRusaintJsonFiles([
+    await atStage("학생정보 화면 반영", () => client.apply_update(initialized.html));
+    const student = await atStage("익명 학생정보 해석", () => JSON.parse(client.anonymous_student_json()) as AnonymousStudent);
+    const detailsRequest = await atStage("세부 졸업요건 요청 생성", () => client.details_request());
+    const details = await atStage("세부 졸업요건 조회", () => runEvent(session, detailsRequest));
+    await atStage("세부 졸업요건 화면 반영", () => client.apply_update(details.html));
+    const requirements = await atStage("졸업요건 표 해석", () => JSON.parse(client.requirements_json()) as RequirementsOutput);
+    const result = await atStage("DegreeMap 판정 데이터 변환", () => parseRusaintJsonFiles([
       { name:"anonymous-graduation-student.json", text:JSON.stringify(student) },
       { name:"anonymous-graduation-requirements.json", text:JSON.stringify(requirements) },
-    ]);
+    ]));
     result.studentCase.label = "내 u-SAINT · 직접 연결";
     result.studentCase.shortLabel = "내 u-SAINT";
     result.studentCase.dataNote = "현재 u-SAINT 졸업사정표를 브라우저에서 익명화·구조화한 결과입니다.";
