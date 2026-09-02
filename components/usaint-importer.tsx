@@ -2,14 +2,15 @@
 
 import { useRef, useState } from "react";
 import {
-  AlertCircle, CheckCircle2, Database, ExternalLink, FileJson2, Laptop,
-  LockKeyhole, ShieldCheck, TerminalSquare, Upload,
+  AlertCircle, CheckCircle2, Database, ExternalLink, FileJson2, KeyRound, Laptop,
+  LockKeyhole, LogIn, ShieldCheck, TerminalSquare, Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { StudentCase } from "@/lib/degree-map";
 import {
   parseRusaintJsonFiles, type RusaintImportSummary,
 } from "@/lib/rusaint-import";
+import { importLiveUSaint } from "@/lib/usaint-live";
 
 type Props = {
   onImported: (studentCase: StudentCase, summary: RusaintImportSummary) => void;
@@ -27,6 +28,29 @@ export function USaintImporter({ onImported }: Props) {
   const [state, setState] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
   const [summary, setSummary] = useState<RusaintImportSummary | null>(null);
+  const [studentId, setStudentId] = useState("");
+  const [password, setPassword] = useState("");
+  const [loginState, setLoginState] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [loginMessage, setLoginMessage] = useState("");
+
+  async function connectUSaint() {
+    if (loginState === "loading") return;
+    setLoginState("loading");
+    setLoginMessage("");
+    try {
+      const result = await importLiveUSaint(studentId, password);
+      setPassword("");
+      setStudentId("");
+      setSummary(result.summary);
+      setLoginState("success");
+      setLoginMessage("u-SAINT 졸업사정표를 익명화해 DegreeMap에 연결했습니다.");
+      onImported(result.studentCase, result.summary);
+    } catch (error) {
+      setPassword("");
+      setLoginState("error");
+      setLoginMessage(error instanceof Error ? error.message : "u-SAINT 연결 중 오류가 발생했습니다.");
+    }
+  }
 
   async function importFiles() {
     if (!files.length || state === "loading") return;
@@ -50,16 +74,28 @@ export function USaintImporter({ onImported }: Props) {
     <div className="usaint-import-shell">
       <section className="panel usaint-import-hero">
         <div>
-          <span className="engine-badge"><Database /> RUSAINT LOCAL CONNECTOR</span>
-          <h2>실제 u-SAINT 졸업사정 데이터를 DegreeMap으로 가져오기</h2>
-          <p>rusaint가 생성한 JSON을 이 브라우저 안에서만 읽고, 이름·학번 등 개인 식별 필드를 제거한 뒤 기존 결정론적 규칙 엔진에 연결합니다.</p>
+          <span className="engine-badge"><Database /> RUSAINT WEB CONNECTOR</span>
+          <h2>이 페이지에서 u-SAINT에 로그인해 내 졸업사정표 연결</h2>
+          <p>Cloudflare Worker는 로그인 요청과 암호화된 세션 전달만 담당하고, rusaint 기반 WebAssembly가 브라우저에서 졸업사정표를 익명화·구조화합니다.</p>
         </div>
-        <div className="privacy-seal"><ShieldCheck /><div><strong>외부 업로드 없음</strong><span>원본 JSON은 Worker·AI로 전송하지 않음</span></div></div>
+        <div className="privacy-seal"><ShieldCheck /><div><strong>비밀번호 저장 없음</strong><span>AI에는 익명 판정 데이터만 전송</span></div></div>
+      </section>
+
+      <section className="panel usaint-live-login">
+        <div className="panel-heading"><div><h2>u-SAINT 직접 연결</h2><p>숭실 통합로그인 계정으로 한 번 연결하면 현재 졸업사정 결과를 바로 불러옵니다.</p></div><KeyRound /></div>
+        <div className="usaint-login-fields">
+          <label><span>학번</span><input inputMode="numeric" autoComplete="username" value={studentId} onChange={(event) => setStudentId(event.target.value.replace(/\D/g, "").slice(0, 12))} placeholder="학번 입력" disabled={loginState === "loading"} /></label>
+          <label><span>비밀번호</span><input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="숭실 통합로그인 비밀번호" disabled={loginState === "loading"} onKeyDown={(event) => { if (event.key === "Enter") void connectUSaint(); }} /></label>
+          <Button className="import-action" onClick={connectUSaint} disabled={!studentId || !password || loginState === "loading"}>{loginState === "loading" ? <><Laptop className="animate-spin" /> 졸업사정표 연결 중</> : <><LogIn /> u-SAINT 로그인 및 연결</>}</Button>
+        </div>
+        <div className="import-note"><LockKeyhole /><p><strong>계정정보는 저장하지 않습니다.</strong> 비밀번호는 통합로그인 요청 직후 폐기되며, 로그인 쿠키는 Worker의 비밀키로 암호화된 단기 토큰 형태로 현재 브라우저 메모리에만 유지됩니다.</p></div>
+        {loginState === "error" && <div className="import-result error"><AlertCircle /><div><strong>연결하지 못했습니다.</strong><p>{loginMessage}</p></div></div>}
+        {loginState === "success" && <div className="import-result success"><CheckCircle2 /><div><strong>직접 연결 완료</strong><p>{loginMessage}</p></div></div>}
       </section>
 
       <div className="usaint-import-grid">
         <section className="panel importer-steps">
-          <div className="panel-heading"><div><h2>1. PowerShell에서 JSON 만들기</h2><p>rusaint 설치와 로그인 설정을 마친 폴더에서 아래 명령을 실행합니다.</p></div><TerminalSquare /></div>
+          <div className="panel-heading"><div><h2>직접 연결이 안 될 때: 로컬 JSON</h2><p>u-SAINT 점검 중에는 기존 rusaint CLI JSON 방식도 그대로 사용할 수 있습니다.</p></div><TerminalSquare /></div>
           <div className="command-list">
             {commands.map((command, index) => <div key={command}><span>{index + 1}</span><code>{command}</code></div>)}
           </div>

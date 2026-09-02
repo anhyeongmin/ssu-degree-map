@@ -1,0 +1,57 @@
+name: Direct u-SAINT integration CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "rusaint-wasm-spike/**"
+      - "worker/**"
+      - "lib/usaint-live.ts"
+      - "lib/rusaint-import.ts"
+      - "components/usaint-importer.tsx"
+      - "app/globals.css"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/deploy-pages.yml"
+      - ".github/workflows/rusaint-wasm-spike.yml"
+  push:
+    branches: [rusaint-worker-port]
+    paths:
+      - "rusaint-wasm-spike/**"
+      - "worker/**"
+      - "lib/usaint-live.ts"
+      - "lib/rusaint-import.ts"
+      - "components/usaint-importer.tsx"
+      - "app/globals.css"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/deploy-pages.yml"
+      - ".github/workflows/rusaint-wasm-spike.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rusaint-wasm-spike
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: cargo install wasm-pack --locked
+      - run: cargo tree --target wasm32-unknown-unknown -e features -i tokio --manifest-path rusaint-wasm-spike/Cargo.toml
+      - run: wasm-pack build rusaint-wasm-spike --target web --release --out-dir ../public/rusaint-web --out-name degree_map_rusaint_web
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_AI_WORKER_URL: https://ssu-degree-map-ai.degreepath.workers.dev
