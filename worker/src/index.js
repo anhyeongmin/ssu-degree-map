@@ -129,6 +129,37 @@ function outputStrings(value) {
   ];
 }
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+function summaryContradictsRequirements(summary, input) {
+  if (typeof summary !== "string") return true;
+  if (input.unmet.length === 0 && summary.includes("미충족")) return true;
+  return input.requirements.some((requirement) => {
+    if (requirement.status === "미충족" || !summary.includes(requirement.label)) return false;
+    const label = escapeRegExp(requirement.label);
+    return new RegExp(`(?:${label}.{0,80}미충족|미충족.{0,80}${label})`, "u").test(summary);
+  });
+}
+
+function ruleGroundedSummary(input) {
+  const context = `${input.yearLabel} ${input.department} ${input.majorType}`;
+  const credit = input.creditSummary.shortage > 0
+    ? `확인된 총학점은 ${input.creditSummary.earned}/${input.creditSummary.required}학점이며 ${input.creditSummary.shortage}학점이 부족합니다.`
+    : `확인된 총학점은 ${input.creditSummary.earned}/${input.creditSummary.required}학점으로 학점 기준을 충족합니다.`;
+  const groups = [
+    input.unmet.length ? `미충족 ${input.unmet.join(", ")}` : "",
+    input.planned.length ? `충족예정 ${input.planned.join(", ")}` : "",
+    input.evidenceNeeded.length ? `증빙 필요 ${input.evidenceNeeded.join(", ")}` : "",
+    input.departmentConfirmation.length ? `학과 확인 필요 ${input.departmentConfirmation.join(", ")}` : "",
+  ].filter(Boolean);
+  const remaining = groups.length
+    ? `${groups.join(" · ")} 항목을 상태별로 구분해 준비해야 합니다.`
+    : "현재 입력에서 추가 확인이 필요한 요건은 없습니다.";
+  return `${context}의 규칙 엔진 판정 결과입니다. ${credit} ${remaining}`;
+}
+
 export function groundModelOutput(value, input) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
   const allowedWarningLabels = [...new Set([...input.evidenceNeeded, ...input.departmentConfirmation])];
@@ -151,9 +182,10 @@ export function groundModelOutput(value, input) {
     };
   });
   const unresolvedCount = input.unmet.length + input.planned.length + input.evidenceNeeded.length + input.departmentConfirmation.length;
-  const safeSummary = unresolvedCount > 0 && typeof value.summary === "string"
+  let safeSummary = unresolvedCount > 0 && typeof value.summary === "string"
     ? sanitizeAiText(value.summary).replace(FALSE_ALL_FULFILLED, "확인된 다수의 졸업요건을 충족")
     : sanitizeAiText(value.summary);
+  if (summaryContradictsRequirements(safeSummary, input)) safeSummary = ruleGroundedSummary(input);
   const warnings = Array.isArray(value.warnings)
     ? [...new Set(value.warnings.filter((warning) => allowedWarningLabels.some((label) => warning.includes(label))))]
     : value.warnings;
