@@ -6,6 +6,7 @@ import {
   sealSession,
   storeResponseCookies,
 } from "../src/usaint-proxy.js";
+import worker from "../src/index.js";
 
 const secret = "0123456789abcdef0123456789abcdef";
 
@@ -41,4 +42,35 @@ test("동일 쿠키 갱신과 삭제를 중복 없이 처리한다", () => {
   assert.equal(jar[0].value, "two");
   storeResponseCookies(jar, { url:"https://smartid.ssu.ac.kr/", headers:new Headers({ "set-cookie":"sToken=gone; Path=/; Max-Age=0" }) });
   assert.equal(jar.length, 0);
+});
+
+function request(path, body) {
+  return new Request(`https://worker.example${path}`, {
+    method:"POST",
+    headers:{ origin:"https://anhyeongmin.github.io", "content-type":"application/json" },
+    body:JSON.stringify(body),
+  });
+}
+
+test("u-SAINT 프록시는 추가 필드와 임의 WebDynpro URL을 거부한다", async () => {
+  const env = { SESSION_KEY:secret };
+  const malformedLogin = await worker.fetch(request("/usaint/login", { id:"20201234", password:"secret", savePassword:true }), env);
+  assert.equal(malformedLogin.status, 400);
+
+  const session = await sealSession({ cookies:[] }, secret);
+  const arbitraryUrl = await worker.fetch(request("/usaint/graduation/event", {
+    session,
+    url:"https://example.com/private",
+    form:"SAPEVENTQUEUE=test",
+  }), env);
+  assert.equal(arbitraryUrl.status, 400);
+});
+
+test("허용되지 않은 Origin은 인증 처리 전에 차단한다", async () => {
+  const response = await worker.fetch(new Request("https://worker.example/usaint/login", {
+    method:"POST",
+    headers:{ origin:"https://evil.example", "content-type":"application/json" },
+    body:JSON.stringify({ id:"20201234", password:"secret" }),
+  }), { SESSION_KEY:secret });
+  assert.equal(response.status, 403);
 });
